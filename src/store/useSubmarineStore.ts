@@ -44,7 +44,7 @@ interface SubmarineState {
 export const useSubmarineStore = create<SubmarineState>()((set) => ({
     // État initial : Immersion périscopique aux Açores
     depth: 15,
-    heading: 90,
+    heading: 0,
     pitch: 0,
     speed: 0,
     position: [38.5, -28.0],
@@ -57,7 +57,7 @@ export const useSubmarineStore = create<SubmarineState>()((set) => ({
             alignment: "allié",
             nationality: "Française",
             position: [38.6, -27.8],
-            heading: 90,
+            heading: 0,
             speed: 0,
             depth: 0
         }
@@ -76,7 +76,7 @@ export const useSubmarineStore = create<SubmarineState>()((set) => ({
             { ...contact, id: crypto.randomUUID() }
         ]
     })),
-    
+
     updateContact: (id, updates) => set((state) => ({
         contacts: state.contacts.map(c =>
             c.id === id ? { ...c, ...updates } : c
