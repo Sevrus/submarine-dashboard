@@ -25,9 +25,10 @@ interface SubmarineState {
     timeMultiplier: number
     gameTime: number
     sensorRange: number
-
     targetDepth: number | null
     waypoints: [number, number][]
+
+    isAlarmMuted: boolean
 
     setDepth: (depth: number) => void
     setHeading: (heading: number) => void
@@ -35,15 +36,13 @@ interface SubmarineState {
     setSpeed: (speed: number) => void
     setPosition: (lat: number, lng: number) => void
     setSensorRange: (range: number) => void
-
     setTargetDepth: (depth: number | null) => void
+    setAlarmMuted: (muted: boolean) => void
     addWaypoint: (lat: number, lng: number) => void
     clearWaypoints: () => void
-
     addContact: (contact: Omit<Contact, "id">) => void
     updateContact: (id: string, updates: Partial<Omit<Contact, "id">>) => void
     removeContact: (id: string) => void
-
     setTimeMultiplier: (multiplier: number) => void
     advanceTime: (dtRealSeconds: number) => void
     setGameTime: (timeMs: number) => void
@@ -55,26 +54,27 @@ interface SubmarineState {
 
 export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
     depth: 15,
-    heading: 90,
+    heading: 0,
     pitch: 0,
-    speed: 4,
+    speed: 0,
     position: [38.5, -28.0],
     timeMultiplier: 1,
     gameTime: Date.now(),
     sensorRange: 15,
     targetDepth: null,
     waypoints: [],
+    isAlarmMuted: false,
 
     contacts: [
         {
             id: crypto.randomUUID(),
             name: "FDI Amiral Cabanier",
             type: "military",
-            alignment: "neutre",
+            alignment: "allié",
             nationality: "Française",
             position: [38.6, -27.8],
-            heading: 210,
-            speed: 16,
+            heading: 0,
+            speed: 0,
             depth: 0
         }
     ],
@@ -86,9 +86,9 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
     setPosition: (lat, lng) => set({ position: [lat, lng] }),
     setSensorRange: (sensorRange) => set({ sensorRange }),
     setTargetDepth: (targetDepth) => set({ targetDepth }),
+    setAlarmMuted: (isAlarmMuted) => set({ isAlarmMuted }),
     addWaypoint: (lat, lng) => set((state) => ({ waypoints: [...state.waypoints, [lat, lng]] })),
     clearWaypoints: () => set({ waypoints: [] }),
-
     setTimeMultiplier: (multiplier) => set({ timeMultiplier: multiplier }),
     setGameTime: (gameTime) => set({ gameTime }),
 
@@ -108,6 +108,22 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
         if (state.timeMultiplier === 0) return state;
 
         const dtGameHours = (dtRealSeconds * state.timeMultiplier) / 3600;
+        const distanceMovedThisTick = state.speed * dtGameHours;
+
+        let newHeading = state.heading;
+        let newWaypoints = [...state.waypoints];
+
+        if (newWaypoints.length > 0 && state.speed > 0) {
+            const distToNext = getDistanceNm(state.position, newWaypoints[0]);
+            if (distToNext <= Math.max(0.2, distanceMovedThisTick)) {
+                newWaypoints.shift();
+                if (newWaypoints.length > 0) {
+                    newHeading = getBearing(state.position, newWaypoints[0]);
+                }
+            } else {
+                newHeading = getBearing(state.position, newWaypoints[0]);
+            }
+        }
 
         const calculateNewPosition = (pos: [number, number], speed: number, heading: number): [number, number] => {
             if (speed === 0) return pos;
@@ -126,7 +142,6 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
         if (state.speed > 0 && state.pitch !== 0) {
             const pitchRad = state.pitch * (Math.PI / 180);
             const verticalSpeedMetersPerHour = state.speed * Math.sin(pitchRad) * 1852;
-
             newDepth = state.depth - (verticalSpeedMetersPerHour * dtGameHours);
 
             if (newDepth <= 0) {
@@ -143,12 +158,21 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
             }
         }
 
+        let newIsAlarmMuted = state.isAlarmMuted;
+        const willBeBlind = state.speed > 15 || newDepth > 150;
+        if (!willBeBlind) {
+            newIsAlarmMuted = false;
+        }
+
         return {
+            heading: newHeading,
+            waypoints: newWaypoints,
             depth: Math.round(newDepth * 10) / 10,
             pitch: newPitch,
             targetDepth: newTargetDepth,
+            isAlarmMuted: newIsAlarmMuted,
             gameTime: state.gameTime + (dtRealSeconds * state.timeMultiplier * 1000),
-            position: calculateNewPosition(state.position, state.speed, state.heading),
+            position: calculateNewPosition(state.position, state.speed, newHeading),
             contacts: state.contacts.map(c => ({
                 ...c,
                 position: calculateNewPosition(c.position, c.speed, c.heading)
@@ -164,15 +188,32 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
     },
 
     getVisibleContacts: () => {
-        const { contacts, position, sensorRange } = get()
-        if (get().getSonarStatus().isBlind) return []
-        return contacts.filter(contact => getDistanceNm(position, contact.position) <= sensorRange)
+        const { contacts, position, sensorRange } = get();
+
+        const isBlind = get().getSonarStatus().isBlind;
+
+        const allies = contacts.filter(c => c.alignment === "allié");
+
+        return contacts.filter(contact => {
+            if (contact.alignment === "allié") return true;
+
+            for (const ally of allies) {
+                if (getDistanceNm(ally.position, contact.position) <= sensorRange) {
+                    return true;
+                }
+            }
+
+            if (isBlind) return false;
+
+            return getDistanceNm(position, contact.position) <= sensorRange;
+
+
+        })
     },
 
     getRouteDistance: () => {
         const { position, waypoints } = get()
         if (waypoints.length === 0) return 0
-
         let total = getDistanceNm(position, waypoints[0])
         for(let i = 0; i < waypoints.length - 1; i++) {
             total += getDistanceNm(waypoints[i], waypoints[i+1])
@@ -187,8 +228,19 @@ export const getDistanceNm = (pos1: [number, number], pos2: [number, number]) =>
     const dLon = (pos2[1] - pos1[1]) * Math.PI / 180;
     const lat1 = pos1[0] * Math.PI / 180;
     const lat2 = pos2[0] * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-        Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2);
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
+}
+
+export const getBearing = (start: [number, number], end: [number, number]) => {
+    const startLat = start[0] * Math.PI / 180;
+    const startLng = start[1] * Math.PI / 180;
+    const endLat = end[0] * Math.PI / 180;
+    const endLng = end[1] * Math.PI / 180;
+    const dLng = endLng - startLng;
+    const y = Math.sin(dLng) * Math.cos(endLat);
+    const x = Math.cos(startLat) * Math.sin(endLat) - Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng);
+    const bearing = (Math.atan2(y, x) * 180) / Math.PI;
+    return Math.round(((bearing + 360) % 360) * 100) / 100;
 }
