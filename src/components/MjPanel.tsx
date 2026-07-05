@@ -1,4 +1,5 @@
 import { useSubmarineStore, type Alignment } from "../store/useSubmarineStore";
+import * as React from "react";
 
 export function MjPanel() {
     const store = useSubmarineStore()
@@ -19,6 +20,23 @@ export function MjPanel() {
         })
     }
 
+    // --- GESTION DU CHANGEMENT D'HEURE ---
+    const gmtTimeString = new Date(store.gameTime).toLocaleTimeString("en-GB", {
+        timeZone: "UTC",
+        hour: "2-digit",
+        minute: "2-digit"
+    })
+
+    // Modification de l'heure
+    const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const [hours, minutes] = e.target.value.split(":").map(Number)
+        if (isNaN(hours) || isNaN(minutes)) return
+
+        const date = new Date(store.gameTime)
+        date.setUTCHours(hours, minutes, 0, 0) // On applique la nouvelle heure en temps universel
+        store.setGameTime(date.getTime())
+    }
+
     return (
         <aside className="w-96 bg-slate-900 border-l border-slate-800 flex flex-col h-full z-30 shadow-2xl">
             <header className="border-b border-red-900/50 p-6 pb-4 shrink-0">
@@ -31,12 +49,12 @@ export function MjPanel() {
                 {/* ==================== MOTEUR TEMPOREL ==================== */}
                 <section className="flex flex-col gap-3 bg-slate-950 p-4 rounded-lg border border-slate-800 shadow-inner">
                     <div className="flex justify-between items-center text-xs text-slate-400 uppercase tracking-widest">
-                        <span>Compression Temporelle</span>
+                        <span>Moteur Temporel</span>
                         {store.timeMultiplier === 0 && <span className="text-amber-500 font-bold animate-pulse">PAUSE</span>}
                         {store.timeMultiplier > 1 && <span className="text-emerald-500 font-bold">x{store.timeMultiplier}</span>}
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-4 gap-2 mb-2">
                         <button
                             onClick={() => store.setTimeMultiplier(0)}
                             className={`py-2 text-xs font-bold rounded border ${store.timeMultiplier === 0 ? 'bg-amber-900/50 border-amber-500 text-amber-400' : 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800'}`}
@@ -47,20 +65,30 @@ export function MjPanel() {
                             onClick={() => store.setTimeMultiplier(1)}
                             className={`py-2 text-xs font-bold rounded border ${store.timeMultiplier === 1 ? 'bg-cyan-900/50 border-cyan-500 text-cyan-400' : 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800'}`}
                         >
-                            Temps Réel
+                            1:1
                         </button>
                         <button
                             onClick={() => store.setTimeMultiplier(60)}
                             className={`py-2 text-xs font-bold rounded border ${store.timeMultiplier === 60 ? 'bg-emerald-900/50 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800'}`}
                         >
-                            1s = 1min
+                            x60
                         </button>
                         <button
                             onClick={() => store.setTimeMultiplier(600)}
                             className={`py-2 text-xs font-bold rounded border ${store.timeMultiplier === 600 ? 'bg-emerald-900/50 border-emerald-500 text-emerald-400' : 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800'}`}
                         >
-                            1s = 10m
+                            x600
                         </button>
+                    </div>
+
+                    <div className="flex justify-between items-center border-t border-slate-800 pt-3 mt-1">
+                        <label className="text-[10px] text-slate-500 uppercase">Régler l'heure de départ (ZULU)</label>
+                        <input
+                            type="time"
+                            value={gmtTimeString}
+                            onChange={handleTimeChange}
+                            className="bg-slate-900 text-xs p-1.5 border border-slate-700 rounded text-cyan-400 font-bold outline-none focus:border-cyan-500"
+                        />
                     </div>
                 </section>
 

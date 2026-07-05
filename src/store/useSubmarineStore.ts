@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
-export type ContactType = "civilian" | "military" | "unknown"
-export type Alignment = "allié" | "neutre" | "hostile"
+export type ContactType = "civilian" | "military" | "unknown";
+export type Alignment = "allié" | "neutre" | "hostile";
 
 export interface Contact {
     id: string
@@ -24,6 +24,9 @@ interface SubmarineState {
     contacts: Contact[]
     timeMultiplier: number
 
+    // NOUVEAU : Le temps in-game (en millisecondes)
+    gameTime: number
+
     setDepth: (depth: number) => void
     setHeading: (heading: number) => void
     setPitch: (pitch: number) => void
@@ -36,6 +39,7 @@ interface SubmarineState {
 
     setTimeMultiplier: (multiplier: number) => void
     advanceTime: (dtRealSeconds: number) => void
+    setGameTime: (timeMs: number) => void
 }
 
 export const useSubmarineStore = create<SubmarineState>()((set) => ({
@@ -45,6 +49,9 @@ export const useSubmarineStore = create<SubmarineState>()((set) => ({
     speed: 4,
     position: [38.5, -28.0],
     timeMultiplier: 1,
+
+    // Initialisation à l'heure de ta partie
+    gameTime: Date.now(),
 
     contacts: [
         {
@@ -66,6 +73,7 @@ export const useSubmarineStore = create<SubmarineState>()((set) => ({
     setSpeed: (speed) => set({ speed }),
     setPosition: (lat, lng) => set({ position: [lat, lng] }),
     setTimeMultiplier: (multiplier) => set({ timeMultiplier: multiplier }),
+    setGameTime: (gameTime) => set({ gameTime }),
 
     addContact: (contact) => set((state) => ({
         contacts: [...state.contacts, { ...contact, id: crypto.randomUUID() }]
@@ -84,7 +92,6 @@ export const useSubmarineStore = create<SubmarineState>()((set) => ({
 
         const dtGameHours = (dtRealSeconds * state.timeMultiplier) / 3600;
 
-        // 1. Calcul du déplacement horizontal (Lat/Lng)
         const calculateNewPosition = (pos: [number, number], speed: number, heading: number): [number, number] => {
             if (speed === 0) return pos;
             const distanceNm = speed * dtGameHours;
@@ -97,31 +104,26 @@ export const useSubmarineStore = create<SubmarineState>()((set) => ({
             return [pos[0] + latChange, pos[1] + lngChange];
         };
 
-        // 2. Calcul du déplacement vertical (Profondeur)
         let newDepth = state.depth;
         let newPitch = state.pitch;
 
         if (state.speed > 0 && state.pitch !== 0) {
-            // 1 noeud = 1852 mètres/heure
             const pitchRad = state.pitch * (Math.PI / 180);
-
-            // Vitesse verticale en mètres par heure
             const verticalSpeedMetersPerHour = state.speed * Math.sin(pitchRad) * 1852;
-
-            // Assiette positive (nez en l'air) = la profondeur diminue
             newDepth = state.depth - (verticalSpeedMetersPerHour * dtGameHours);
 
             if (newDepth <= 0) {
-                newDepth = 0; // On ne peut pas voler
-                newPitch = 0; // Remise à plat automatique une fois en surface
+                newDepth = 0;
+                newPitch = 0;
             } else {
-                newDepth = Math.round(newDepth); // Arrondi pour un affichage propre
+                newDepth = Math.round(newDepth);
             }
         }
 
         return {
             depth: newDepth,
             pitch: newPitch,
+            gameTime: state.gameTime + (dtRealSeconds * state.timeMultiplier * 1000),
             position: calculateNewPosition(state.position, state.speed, state.heading),
             contacts: state.contacts.map(c => ({
                 ...c,
