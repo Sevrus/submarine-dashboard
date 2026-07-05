@@ -41,6 +41,7 @@ interface SubmarineState {
     advanceTime: (dtRealSeconds: number) => void
     setGameTime: (timeMs: number) => void
 
+    getSonarStatus: () => { isBlind: boolean; reason: string | null }
     getVisibleContacts: () => Contact[]
 }
 
@@ -67,14 +68,6 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
             depth: 0
         }
     ],
-
-    getVisibleContacts: () => {
-        const { contacts, position, sensorRange } = get()
-        return contacts.filter(contact => {
-            const distance = getDistanceNm(position, contact.position)
-            return distance <= sensorRange
-        })
-    },
 
     setDepth: (depth) => set({ depth }),
     setHeading: (heading) => set({ heading }),
@@ -140,7 +133,26 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
                 position: calculateNewPosition(c.position, c.speed, c.heading)
             }))
         };
-    })
+    }),
+
+    // --- LOGIQUE PHYSIQUE DU SONAR ---
+    getSonarStatus: () => {
+        const { speed, depth } = get()
+        if (speed > 15) return { isBlind: true, reason: "CAVITATION (Bruit d'écoulement trop élevé)" }
+        if (depth > 150) return { isBlind: true, reason: "THERMOCLINE (Interférences de profondeur)" }
+        return { isBlind: false, reason: null }
+    },
+
+    getVisibleContacts: () => {
+        const { contacts, position, sensorRange } = get();
+
+        if (get().getSonarStatus().isBlind) return [];
+
+        return contacts.filter(contact => {
+            const distance = getDistanceNm(position, contact.position)
+            return distance <= sensorRange
+        });
+    }
 }))
 
 // Retourne la distance en Milles Nautiques (nm)

@@ -1,5 +1,7 @@
 import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import L from "leaflet";
+import { useEffect, useRef } from "react";
+import gsap from "gsap";
 import { useSubmarineStore, type Alignment } from "../store/useSubmarineStore";
 
 const createVesselIcon = (color: string, heading: number, label: string) => {
@@ -32,11 +34,44 @@ const getAlignmentColor = (alignment: Alignment) => {
 }
 
 export function TacticalMap() {
-    const { position, heading, speed, depth, sensorRange, getVisibleContacts } = useSubmarineStore();
+    const { position, heading, speed, depth, sensorRange, getVisibleContacts, getSonarStatus } = useSubmarineStore();
 
     const visibleContacts = getVisibleContacts();
+    const { isBlind, reason } = getSonarStatus();
+
+    const warningRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (isBlind && warningRef.current) {
+            // Effet d'alerte critique : flash rapide puis pulsation
+            const tl = gsap.timeline();
+            tl.fromTo(warningRef.current,
+                { opacity: 0, scale: 1.1 },
+                { opacity: 1, scale: 1, duration: 0.1, repeat: 3, yoyo: true, ease: "power2.inOut" }
+            ).to(warningRef.current,
+                { opacity: 0.8, duration: 1, repeat: -1, yoyo: true, ease: "sine.inOut" }
+            )
+
+            return () => { tl.kill() };
+        }
+    }, [isBlind]);
 
     return (
+        <div className="relative w-full h-full">
+
+            {/* ================= ALERTE SONAR AVEUGLE ================= */}
+            {isBlind && (
+                <div className="absolute inset-0 z-[1000] pointer-events-none flex items-center justify-center bg-red-950/30 backdrop-blur-[2px] transition-all duration-500">
+                    <div
+                        ref={warningRef}
+                        className="border-2 border-red-500 bg-red-950/90 text-red-500 px-8 py-6 rounded-lg flex flex-col items-center shadow-[0_0_50px_rgba(239,68,68,0.4)]"
+                    >
+                        <span className="text-4xl font-bold tracking-[0.2em] drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]">SONAR AVEUGLE</span>
+                        <span className="text-sm mt-3 text-red-400 font-bold uppercase tracking-widest">{reason}</span>
+                    </div>
+                </div>
+            )}
+
         <MapContainer
             center={position}
             zoom={11}
@@ -87,5 +122,6 @@ export function TacticalMap() {
                 </Marker>
             ))}
         </MapContainer>
+        </div>
     )
 }
