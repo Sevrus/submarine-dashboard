@@ -28,6 +28,9 @@ interface SubmarineState {
     targetDepth: number | null
     waypoints: [number, number][]
 
+    contactToPlace: string | null
+    setContactToPlace: (id: string | null) => void
+
     isAlarmMuted: boolean
 
     setDepth: (depth: number) => void
@@ -64,6 +67,8 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
     targetDepth: null,
     waypoints: [],
     isAlarmMuted: false,
+    contactToPlace: null,
+    setContactToPlace: (contactToPlace) => set({ contactToPlace }),
 
     contacts: [
         {

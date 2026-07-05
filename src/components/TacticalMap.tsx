@@ -5,10 +5,19 @@ import gsap from "gsap";
 import { useSubmarineStore, type Alignment } from "../store/useSubmarineStore";
 
 function MapClickHandler() {
-    const addWaypoint = useSubmarineStore(s => s.addWaypoint)
+    const addWaypoint = useSubmarineStore(s => s.addWaypoint);
+    const contactToPlace = useSubmarineStore(s => s.contactToPlace);
+    const updateContact = useSubmarineStore(s => s.updateContact);
+    const setContactToPlace = useSubmarineStore(s => s.setContactToPlace);
+
     useMapEvents({
         click(e) {
-            addWaypoint(e.latlng.lat, e.latlng.lng);
+            if (contactToPlace) {
+                updateContact(contactToPlace, { position: [e.latlng.lat, e.latlng.lng] });
+                setContactToPlace(null);
+            } else {
+                addWaypoint(e.latlng.lat, e.latlng.lng);
+            }
         }
     });
     return null;
