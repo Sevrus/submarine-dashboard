@@ -23,15 +23,15 @@ interface SubmarineState {
     position: [number, number]
     contacts: Contact[]
     timeMultiplier: number
-
-    // NOUVEAU : Le temps in-game (en millisecondes)
     gameTime: number
+    sensorRange: number
 
     setDepth: (depth: number) => void
     setHeading: (heading: number) => void
     setPitch: (pitch: number) => void
     setSpeed: (speed: number) => void
     setPosition: (lat: number, lng: number) => void
+    setSensorRange: (range: number) => void
 
     addContact: (contact: Omit<Contact, "id">) => void
     updateContact: (id: string, updates: Partial<Omit<Contact, "id">>) => void
@@ -40,18 +40,19 @@ interface SubmarineState {
     setTimeMultiplier: (multiplier: number) => void
     advanceTime: (dtRealSeconds: number) => void
     setGameTime: (timeMs: number) => void
+
+    getVisibleContacts: () => Contact[]
 }
 
-export const useSubmarineStore = create<SubmarineState>()((set) => ({
+export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
     depth: 15,
     heading: 90,
     pitch: 0,
     speed: 4,
     position: [38.5, -28.0],
     timeMultiplier: 1,
-
-    // Initialisation à l'heure de ta partie
     gameTime: Date.now(),
+    sensorRange: 15,
 
     contacts: [
         {
@@ -67,11 +68,20 @@ export const useSubmarineStore = create<SubmarineState>()((set) => ({
         }
     ],
 
+    getVisibleContacts: () => {
+        const { contacts, position, sensorRange } = get()
+        return contacts.filter(contact => {
+            const distance = getDistanceNm(position, contact.position)
+            return distance <= sensorRange
+        })
+    },
+
     setDepth: (depth) => set({ depth }),
     setHeading: (heading) => set({ heading }),
     setPitch: (pitch) => set({ pitch }),
     setSpeed: (speed) => set({ speed }),
     setPosition: (lat, lng) => set({ position: [lat, lng] }),
+    setSensorRange: (sensorRange) => set({ sensorRange }),
     setTimeMultiplier: (multiplier) => set({ timeMultiplier: multiplier }),
     setGameTime: (gameTime) => set({ gameTime }),
 
@@ -132,3 +142,17 @@ export const useSubmarineStore = create<SubmarineState>()((set) => ({
         };
     })
 }))
+
+// Retourne la distance en Milles Nautiques (nm)
+export const getDistanceNm = (pos1: [number, number], pos2: [number, number]) => {
+    const R = 3440.065; // Rayon de la Terre en milles nautiques
+    const dLat = (pos2[0] - pos1[0]) * Math.PI / 180;
+    const dLon = (pos2[1] - pos1[1]) * Math.PI / 180;
+    const lat1 = pos1[0] * Math.PI / 180;
+    const lat2 = pos2[0] * Math.PI / 180;
+
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+}

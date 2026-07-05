@@ -1,10 +1,10 @@
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 import L from "leaflet";
 import { useSubmarineStore, type Alignment } from "../store/useSubmarineStore";
 
 const createVesselIcon = (color: string, heading: number, label: string) => {
     return L.divIcon({
-        className: 'bg-transparent border-none',
+        className: "bg-transparent border-none",
         html: `
       <div style="display: flex; flex-direction: column; align-items: center; width: 60px; margin-left: -15px; margin-top: -15px;">
         <div style="transform: rotate(${heading}deg); transition: transform 1s ease;">
@@ -32,7 +32,9 @@ const getAlignmentColor = (alignment: Alignment) => {
 }
 
 export function TacticalMap() {
-    const { position, heading, speed, depth, contacts } = useSubmarineStore()
+    const { position, heading, speed, depth, sensorRange, getVisibleContacts } = useSubmarineStore();
+
+    const visibleContacts = getVisibleContacts();
 
     return (
         <MapContainer
@@ -47,10 +49,19 @@ export function TacticalMap() {
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
 
-            <Marker
-                position={position}
-                icon={createVesselIcon("#22d3ee", heading, "VOTRE SOUS-MARIN")}
-            >
+            <Circle
+                center={position}
+                radius={sensorRange * 1852}
+                pathOptions={{
+                    color: '#22d3ee',
+                    fillColor: '#22d3ee',
+                    fillOpacity: 0.05,
+                    weight: 1,
+                    dashArray: '5, 10'
+                }}
+            />
+
+            <Marker position={position} icon={createVesselIcon('#22d3ee', heading, 'VOTRE SOUS-MARIN')}>
                 <Popup className="font-mono">
                     <div className="text-slate-900 font-bold mb-1">NOTRE POSITION</div>
                     <div className="text-sm">Prof: {depth} m</div>
@@ -59,7 +70,7 @@ export function TacticalMap() {
                 </Popup>
             </Marker>
 
-            {contacts.map((contact) => (
+            {visibleContacts.map((contact) => (
                 <Marker
                     key={contact.id}
                     position={contact.position}
@@ -71,7 +82,7 @@ export function TacticalMap() {
                         <div className="text-sm">Nat: {contact.nationality}</div>
                         <div className="text-sm">Vit: {contact.speed} nds</div>
                         {contact.depth > 0 && <div className="text-sm">Prof: {contact.depth} m</div>}
-                        <div className="text-sm text-slate-500 mt-1 uppercase">Alignement: {contact.alignment}</div>
+                        <div className="text-sm text-slate-500 mt-1 uppercase text-xs">Alignement: {contact.alignment}</div>
                     </Popup>
                 </Marker>
             ))}
