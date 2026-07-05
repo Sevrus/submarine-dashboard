@@ -2,6 +2,7 @@ import { useSubmarineStore } from "./store/useSubmarineStore";
 import { Compass } from "./components/Compass";
 import { PitchIndicator } from "./components/PitchIndicator";
 import {TacticalMap} from "./components/TacticalMap.tsx";
+import {MjPanel} from "./components/MjPanel.tsx";
 
 function App() {
   const { depth, speed, heading, pitch } = useSubmarineStore()
@@ -64,29 +65,10 @@ function App() {
         {/* =========================================
           PANNEAU DE CONTRÔLE
       ========================================= */}
-        <aside className="w-96 bg-slate-900 border-l border-slate-800 p-6 flex flex-col gap-8 overflow-y-auto z-30 shadow-2xl">
-          <header className="border-b border-red-900/50 pb-4">
-            <h2 className="text-2xl font-bold text-red-500 tracking-wider">PANNEAU DE CONTRÔLE</h2>
-            <p className="text-xs text-slate-500 mt-1">Interface d'administration de la session</p>
-          </header>
-
-          <section className="flex flex-col gap-4">
-            <h3 className="text-sm text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2">Le Sous-marin</h3>
-            <div className="h-32 border border-dashed border-slate-700 flex items-center justify-center text-slate-600 rounded">
-              [ Inputs MJ Sous-marin ]
-            </div>
-          </section>
-
-          <section className="flex flex-col gap-4">
-            <h3 className="text-sm text-slate-400 uppercase tracking-widest border-b border-slate-800 pb-2">Contacts Radar / Sonar</h3>
-            <div className="h-48 border border-dashed border-slate-700 flex items-center justify-center text-slate-600 rounded">
-              [ Liste & Inputs Contacts ]
-            </div>
-          </section>
-        </aside>
+        <MjPanel />
 
       </div>
   )
 }
 
-export default App
+export default App;
