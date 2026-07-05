@@ -3,9 +3,19 @@ import { Compass } from "./components/Compass";
 import { PitchIndicator } from "./components/PitchIndicator";
 import {TacticalMap} from "./components/TacticalMap.tsx";
 import {MjPanel} from "./components/MjPanel.tsx";
+import {useEffect} from "react";
 
 function App() {
-  const { depth, speed, heading, pitch } = useSubmarineStore()
+  const { depth, speed, heading, pitch, advanceTime } = useSubmarineStore();
+
+  // LA BOUCLE DE JEU : S'exécute toutes les secondes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      advanceTime(1) // On avance le moteur d'1 seconde IRL
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [advanceTime])
 
   return (
       <div className="flex h-screen w-full bg-slate-950 text-cyan-50 font-mono overflow-hidden">
