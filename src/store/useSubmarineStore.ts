@@ -26,12 +26,19 @@ interface SubmarineState {
     gameTime: number
     sensorRange: number
 
+    targetDepth: number | null
+    waypoints: [number, number][]
+
     setDepth: (depth: number) => void
     setHeading: (heading: number) => void
     setPitch: (pitch: number) => void
     setSpeed: (speed: number) => void
     setPosition: (lat: number, lng: number) => void
     setSensorRange: (range: number) => void
+
+    setTargetDepth: (depth: number | null) => void
+    addWaypoint: (lat: number, lng: number) => void
+    clearWaypoints: () => void
 
     addContact: (contact: Omit<Contact, "id">) => void
     updateContact: (id: string, updates: Partial<Omit<Contact, "id">>) => void
@@ -43,6 +50,7 @@ interface SubmarineState {
 
     getSonarStatus: () => { isBlind: boolean; reason: string | null }
     getVisibleContacts: () => Contact[]
+    getRouteDistance: () => number
 }
 
 export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
@@ -54,6 +62,8 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
     timeMultiplier: 1,
     gameTime: Date.now(),
     sensorRange: 15,
+    targetDepth: null,
+    waypoints: [],
 
     contacts: [
         {
@@ -75,6 +85,10 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
     setSpeed: (speed) => set({ speed }),
     setPosition: (lat, lng) => set({ position: [lat, lng] }),
     setSensorRange: (sensorRange) => set({ sensorRange }),
+    setTargetDepth: (targetDepth) => set({ targetDepth }),
+    addWaypoint: (lat, lng) => set((state) => ({ waypoints: [...state.waypoints, [lat, lng]] })),
+    clearWaypoints: () => set({ waypoints: [] }),
+
     setTimeMultiplier: (multiplier) => set({ timeMultiplier: multiplier }),
     setGameTime: (gameTime) => set({ gameTime }),
 
@@ -100,32 +114,39 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
             const distanceNm = speed * dtGameHours;
             const headingRad = heading * (Math.PI / 180);
             const latRad = pos[0] * (Math.PI / 180);
-
             const latChange = (distanceNm * Math.cos(headingRad)) / 60;
             const lngChange = (distanceNm * Math.sin(headingRad)) / (60 * Math.cos(latRad));
-
             return [pos[0] + latChange, pos[1] + lngChange];
         };
 
         let newDepth = state.depth;
         let newPitch = state.pitch;
+        let newTargetDepth = state.targetDepth;
 
         if (state.speed > 0 && state.pitch !== 0) {
             const pitchRad = state.pitch * (Math.PI / 180);
             const verticalSpeedMetersPerHour = state.speed * Math.sin(pitchRad) * 1852;
+
             newDepth = state.depth - (verticalSpeedMetersPerHour * dtGameHours);
 
             if (newDepth <= 0) {
                 newDepth = 0;
                 newPitch = 0;
-            } else {
-                newDepth = Math.round(newDepth);
+                newTargetDepth = null;
+            } else if (state.targetDepth !== null) {
+                if ((state.pitch < 0 && newDepth >= state.targetDepth) ||
+                    (state.pitch > 0 && newDepth <= state.targetDepth)) {
+                    newDepth = state.targetDepth;
+                    newPitch = 0;
+                    newTargetDepth = null;
+                }
             }
         }
 
         return {
-            depth: newDepth,
+            depth: Math.round(newDepth * 10) / 10,
             pitch: newPitch,
+            targetDepth: newTargetDepth,
             gameTime: state.gameTime + (dtRealSeconds * state.timeMultiplier * 1000),
             position: calculateNewPosition(state.position, state.speed, state.heading),
             contacts: state.contacts.map(c => ({
@@ -135,34 +156,37 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
         };
     }),
 
-    // --- LOGIQUE PHYSIQUE DU SONAR ---
     getSonarStatus: () => {
         const { speed, depth } = get()
-        if (speed > 15) return { isBlind: true, reason: "CAVITATION (Bruit d'écoulement trop élevé)" }
-        if (depth > 150) return { isBlind: true, reason: "THERMOCLINE (Interférences de profondeur)" }
+        if (speed > 15) return { isBlind: true, reason: "CAVITATION (Vitesse > 15nds)" }
+        if (depth > 150) return { isBlind: true, reason: "THERMOCLINE (Profondeur > 150m)" }
         return { isBlind: false, reason: null }
     },
 
     getVisibleContacts: () => {
-        const { contacts, position, sensorRange } = get();
+        const { contacts, position, sensorRange } = get()
+        if (get().getSonarStatus().isBlind) return []
+        return contacts.filter(contact => getDistanceNm(position, contact.position) <= sensorRange)
+    },
 
-        if (get().getSonarStatus().isBlind) return [];
+    getRouteDistance: () => {
+        const { position, waypoints } = get()
+        if (waypoints.length === 0) return 0
 
-        return contacts.filter(contact => {
-            const distance = getDistanceNm(position, contact.position)
-            return distance <= sensorRange
-        });
+        let total = getDistanceNm(position, waypoints[0])
+        for(let i = 0; i < waypoints.length - 1; i++) {
+            total += getDistanceNm(waypoints[i], waypoints[i+1])
+        }
+        return total
     }
 }))
 
-// Retourne la distance en Milles Nautiques (nm)
 export const getDistanceNm = (pos1: [number, number], pos2: [number, number]) => {
-    const R = 3440.065; // Rayon de la Terre en milles nautiques
+    const R = 3440.065;
     const dLat = (pos2[0] - pos1[0]) * Math.PI / 180;
     const dLon = (pos2[1] - pos1[1]) * Math.PI / 180;
     const lat1 = pos1[0] * Math.PI / 180;
     const lat2 = pos2[0] * Math.PI / 180;
-
     const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
         Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));

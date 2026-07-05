@@ -1,8 +1,18 @@
-import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, Polyline, CircleMarker, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { useSubmarineStore, type Alignment } from "../store/useSubmarineStore";
+
+function MapClickHandler() {
+    const addWaypoint = useSubmarineStore(s => s.addWaypoint)
+    useMapEvents({
+        click(e) {
+            addWaypoint(e.latlng.lat, e.latlng.lng);
+        }
+    });
+    return null;
+}
 
 const createVesselIcon = (color: string, heading: number, label: string) => {
     return L.divIcon({
@@ -34,16 +44,14 @@ const getAlignmentColor = (alignment: Alignment) => {
 }
 
 export function TacticalMap() {
-    const { position, heading, speed, depth, sensorRange, getVisibleContacts, getSonarStatus } = useSubmarineStore();
+    const { position, heading, speed, depth, sensorRange, getVisibleContacts, getSonarStatus, waypoints } = useSubmarineStore();
 
     const visibleContacts = getVisibleContacts();
     const { isBlind, reason } = getSonarStatus();
-
     const warningRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (isBlind && warningRef.current) {
-            // Effet d'alerte critique : flash rapide puis pulsation
             const tl = gsap.timeline();
             tl.fromTo(warningRef.current,
                 { opacity: 0, scale: 1.1 },
@@ -61,7 +69,7 @@ export function TacticalMap() {
 
             {/* ================= ALERTE SONAR AVEUGLE ================= */}
             {isBlind && (
-                <div className="absolute inset-0 z-[1000] pointer-events-none flex items-center justify-center bg-red-950/30 backdrop-blur-[2px] transition-all duration-500">
+                <div className="absolute inset-0 z-1000 pointer-events-none flex items-center justify-center bg-red-950/30 backdrop-blur-[2px] transition-all duration-500">
                     <div
                         ref={warningRef}
                         className="border-2 border-red-500 bg-red-950/90 text-red-500 px-8 py-6 rounded-lg flex flex-col items-center shadow-[0_0_50px_rgba(239,68,68,0.4)]"
@@ -84,19 +92,31 @@ export function TacticalMap() {
                 url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
 
+            <MapClickHandler />
+
+            {waypoints.length > 0 && (
+                <>
+                    <Polyline positions={[position, ...waypoints]} color="#f59e0b" weight={2} dashArray="4, 8" />
+
+                    {waypoints.map((wp, i) => (
+                        <CircleMarker key={i} center={wp} radius={4} pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 1 }} />
+                    ))}
+                </>
+            )}
+
             <Circle
                 center={position}
                 radius={sensorRange * 1852}
                 pathOptions={{
-                    color: '#22d3ee',
-                    fillColor: '#22d3ee',
+                    color: "#22d3ee",
+                    fillColor: "#22d3ee",
                     fillOpacity: 0.05,
                     weight: 1,
-                    dashArray: '5, 10'
+                    dashArray: "5, 10"
                 }}
             />
 
-            <Marker position={position} icon={createVesselIcon('#22d3ee', heading, 'VOTRE SOUS-MARIN')}>
+            <Marker position={position} icon={createVesselIcon("#22d3ee", heading, 'VOTRE SOUS-MARIN')}>
                 <Popup className="font-mono">
                     <div className="text-slate-900 font-bold mb-1">NOTRE POSITION</div>
                     <div className="text-sm">Prof: {depth} m</div>
@@ -117,7 +137,7 @@ export function TacticalMap() {
                         <div className="text-sm">Nat: {contact.nationality}</div>
                         <div className="text-sm">Vit: {contact.speed} nds</div>
                         {contact.depth > 0 && <div className="text-sm">Prof: {contact.depth} m</div>}
-                        <div className="text-sm text-slate-500 mt-1 uppercase text-xs">Alignement: {contact.alignment}</div>
+                        <div className="text-sm text-slate-500 mt-1 uppercase">Alignement: {contact.alignment}</div>
                     </Popup>
                 </Marker>
             ))}
