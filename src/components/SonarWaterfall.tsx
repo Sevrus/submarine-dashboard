@@ -24,23 +24,28 @@ export function SonarWaterfall() {
             const width = canvas.width;
             const height = canvas.height;
 
-            const imageData = ctx.getImageData(0, 0, width, height - 1);
-            ctx.putImageData(imageData, 0, 1);
+            // 1. FLUX HORIZONTAL : On décale l'image d'un pixel vers la GAUCHE
+            const imageData = ctx.getImageData(1, 0, width - 1, height);
+            ctx.putImageData(imageData, 0, 0);
 
+            // 2. Fond noir sur la nouvelle colonne (tout à droite)
             ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, width, 1);
+            ctx.fillRect(width - 1, 0, 1, height);
 
-            for (let x = 0; x < width; x += 2) {
+            // 3. Bruit de fond marin sur la hauteur (axe Y)
+            for (let y = 0; y < height; y += 2) {
                 if (Math.random() > 0.85) {
                     const noiseIntensity = Math.random() * 0.15;
                     ctx.fillStyle = getThermalColor(noiseIntensity);
-                    ctx.fillRect(x, 0, 1, 1);
+                    // On dessine le pixel sur la dernière colonne à droite
+                    ctx.fillRect(width - 1, y, 1, 1);
                 }
             }
 
             const state = useSubmarineStore.getState();
             const { isBlind } = state.getSonarStatus();
 
+            // 4. Dessiner les contacts
             if (!isBlind) {
                 state.contacts.forEach(contact => {
                     const dist = getDistanceNm(state.position, contact.position);
@@ -53,18 +58,45 @@ export function SonarWaterfall() {
                     if (intensity < 0.2) return;
 
                     const trueBearing = getBearing(state.position, contact.position);
-                    const xPos = Math.round((trueBearing / 360) * width);
+                    // L'axe des caps est maintenant VERTICAL (Y)
+                    const yPos = Math.round((trueBearing / 360) * height);
 
-                    const signalWidth = Math.max(1, Math.floor(contact.speed / 4));
+                    // L'épaisseur du signal de base
+                    const signalWidth = Math.max(1, Math.floor(contact.speed / 5));
 
+                    // Halo acoustique (Le bruit de fond de l'écoulement de l'eau)
                     if (intensity > 0.4) {
-                        ctx.fillStyle = getThermalColor(intensity * 0.6);
-                        ctx.fillRect(xPos - signalWidth, 0, signalWidth * 2, 1);
+                        ctx.fillStyle = getThermalColor(intensity * 0.4);
+                        ctx.fillRect(width - 1, yPos - signalWidth * 2, 1, signalWidth * 4);
                     }
 
+                    // Les "Rails" / Harmoniques d'hélice (Sidebands)
+                    // L'écartement dépend directement de la vitesse (vitesse de rotation)
+                    const railOffset = Math.max(3, Math.floor(contact.speed / 2.5));
+
+                    // Un navire à l'arrêt complet (0 nds) ne génère pas de sidebands d'hélice
+                    if (contact.speed > 0 && intensity > 0.3) {
+                        ctx.fillStyle = getThermalColor(intensity * 0.85); // Presque aussi chaud que le centre
+                        // Rail supérieur
+                        ctx.fillRect(width - 1, yPos - railOffset, 1, 1);
+                        // Rail inférieur
+                        ctx.fillRect(width - 1, yPos + railOffset, 1, 1);
+                    }
+
+                    // 3. Trace centrale (Cœur de chauffe de la machinerie)
                     ctx.fillStyle = getThermalColor(intensity);
-                    ctx.fillRect(xPos - Math.floor(signalWidth / 2), 0, signalWidth, 1);
+                    ctx.fillRect(width - 1, yPos - Math.floor(signalWidth / 2), 1, Math.max(1, signalWidth));
                 });
+            } else {
+                // 5. Brouillage (Cavitation) sur la colonne de droite
+                for (let y = 0; y < height; y += 4) {
+                    if (Math.random() > 0.5) {
+                        const noiseIntensity = 0.6 + (Math.random() * 0.4);
+                        ctx.fillStyle = getThermalColor(noiseIntensity);
+                        // Des "blocs" de bruit verticaux
+                        ctx.fillRect(width - 1, y, 1, 4);
+                    }
+                }
             }
 
             setTimeout(() => {
@@ -77,13 +109,15 @@ export function SonarWaterfall() {
     }, []);
 
     return (
-        <div className="relative w-full h-full bg-slate-950 flex flex-col border border-slate-800">
-            {/* Réglette d'azimut en haut */}
-            <div className="h-6 bg-slate-950 border-b border-slate-800 flex relative text-[10px] text-slate-500 font-bold overflow-hidden select-none">
+        <div className="relative w-full h-full bg-slate-950 flex flex-row border border-slate-800">
+
+            {/* Réglette d'azimut VERTICALE à gauche */}
+            <div className="w-10 h-full bg-slate-950 border-r border-slate-800 flex relative text-[10px] text-slate-500 font-bold overflow-hidden select-none shrink-0">
                 {[0, 45, 90, 135, 180, 225, 270, 315].map(deg => (
-                    <div key={deg} className="absolute top-1 flex flex-col items-center -ml-2" style={{ left: `${(deg / 360) * 100}%` }}>
+                    // Les graduations se placent de haut en bas
+                    <div key={deg} className="absolute w-full flex items-center justify-between px-1" style={{ top: `${(deg / 360) * 100}%`, transform: 'translateY(-50%)' }}>
                         <span>{deg.toString().padStart(3, '0')}</span>
-                        <div className="h-1 w-px bg-slate-700 mt-0.5"></div>
+                        <div className="w-2 h-px bg-slate-700"></div>
                     </div>
                 ))}
             </div>
@@ -97,8 +131,8 @@ export function SonarWaterfall() {
                     className="w-full h-full absolute inset-0 mix-blend-screen"
                     style={{ imageRendering: 'pixelated' }}
                 />
-                {/* Ligne de balayage lumineuse pour marquer le "Temps Réel" (en haut) */}
-                <div className="absolute top-0 left-0 w-full h-px bg-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10"></div>
+                {/* Ligne de balayage lumineuse placée tout à DROITE */}
+                <div className="absolute top-0 right-0 w-px h-full bg-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10"></div>
             </div>
         </div>
     );

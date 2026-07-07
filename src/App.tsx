@@ -50,7 +50,7 @@ function App() {
 
           <div className="flex-1 relative bg-slate-900 flex items-center justify-center">
             {/* HORLOGES HUD */}
-            <div className="absolute top-4 left-4 z-[1000] pointer-events-none flex flex-col gap-2">
+            <div className="absolute top-4 left-4 z-1000 pointer-events-none flex flex-col gap-2">
               <div className="bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded flex items-center justify-between gap-4 backdrop-blur-sm shadow-lg">
                 <span className="text-xs text-slate-500 font-bold tracking-widest">ZULU (GMT)</span>
                 <span className="text-cyan-400 font-bold text-xl drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]">{gmtTime}</span>
