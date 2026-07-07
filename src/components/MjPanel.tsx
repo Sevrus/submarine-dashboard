@@ -1,8 +1,12 @@
-import {useSubmarineStore, type Alignment, getDistanceNm} from "../store/useSubmarineStore";
+import {useSubmarineStore, getDistanceNm, type Alignment, type ContactType, type VesselType} from "../store/useSubmarineStore";
 import * as React from "react";
+import {useState} from "react";
 
 export function MjPanel() {
     const store = useSubmarineStore()
+    const [newContactType, setNewContactType] = useState<ContactType>("unknown");
+    const [newVesselType, setNewVesselType] = useState<VesselType>("default");
+
 
     const handleAddContact = () => {
         const latOffset = (Math.random() - 0.5) * 0.1
@@ -10,7 +14,8 @@ export function MjPanel() {
 
         store.addContact({
             name: "Contact Inconnu",
-            type: "unknown",
+            type: newContactType,
+            vesselType: newVesselType,
             alignment: "neutre",
             nationality: "Inconnue",
             position: [store.position[0] + latOffset, store.position[1] + lngOffset],
@@ -185,9 +190,31 @@ export function MjPanel() {
                 <section className="flex flex-col gap-4">
                     <div className="flex justify-between items-end border-b border-slate-800 pb-2">
                         <h3 className="text-sm text-slate-400 uppercase tracking-widest">Contacts ({store.contacts.length})</h3>
-                        <button onClick={handleAddContact} className="bg-slate-800 hover:bg-slate-700 transition-colors text-xs px-3 py-1 rounded text-cyan-400 border border-slate-700">
-                            + Ajouter
-                        </button>
+                        <div className="flex-col">
+                            <div className="flex">
+                                <select
+                                    value={newContactType}
+                                    onChange={(e) => setNewContactType(e.target.value as ContactType)}
+                                    className="bg-slate-800 hover:bg-slate-700 transition-colors text-xs px-3 py-1 rounded text-cyan-400 border border-slate-700"
+                                >
+                                    <option value="unknown">Unknown</option>
+                                    <option value="civilian">Civilian</option>
+                                    <option value="military">Military</option>
+                                </select>
+                                <select
+                                    value={newVesselType}
+                                    onChange={(e) => setNewVesselType(e.target.value as VesselType)}
+                                    className="bg-slate-800 hover:bg-slate-700 transition-colors text-xs px-3 py-1 rounded text-cyan-400 border border-slate-700"
+                                >
+                                    <option value="default">Default</option>
+                                    <option value="ship">Ship</option>
+                                    <option value="submarine">Submarine</option>
+                                </select>
+                            </div>
+                            <button onClick={handleAddContact} className="bg-slate-800 hover:bg-slate-700 transition-colors text-xs px-3 py-1 rounded text-cyan-400 border border-slate-700">
+                                + Ajouter
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex flex-col gap-4">

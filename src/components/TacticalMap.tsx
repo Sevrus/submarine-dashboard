@@ -23,14 +23,31 @@ function MapClickHandler() {
     return null;
 }
 
-const createVesselIcon = (color: string, heading: number, label: string) => {
+const vesselSvgs = {
+    submarine: `
+<path
+    d="M19.9999 12.0001C19.9999 13.5001 18 15.0001 16.9999 16.0001C15.9999 17.0001 15.5 18.0001 15.5 19.5001L15.9999 21.0001L7.99994 21.0001L8.49994 19.5001C8.49994 18.0001 7.99994 17.0001 6.99994 16.0001C5.99994 15.0001 3.99994 13.5001 3.99994 12.0001C3.99994 10.5001 5.99994 9.00006 6.99994 8.00006C7.99994 7.00006 8.49994 6.00006 8.49994 4.50006L7.99994 3.00006L15.9999 3.00006L15.5 4.50006C15.5 6.00006 15.9999 7.00006 16.9999 8.00006C18 9.00006 19.9999 10.5001 19.9999 12.0001Z"
+    clip-rule="evenodd"
+    fill-rule="evenodd"
+/>
+<line x1="8" y1="3" x2="6" y2="1" />
+<line x1="10" y1="3" x2="10" y2="1" />
+<line x1="12" y1="3" x2="12" y2="1" />
+<line x1="14" y1="3" x2="14" y2="1" />`,
+    ship: `<polygon points="12,2 20,20 12,17 4,20" />`,
+    default: `<circle cx="12" cy="12" r="8" />`
+};
+
+const createVesselIcon = (color: string, heading: number, label: string, type: 'submarine' | 'ship' | 'default' = 'default') => {
+    const svgContent = vesselSvgs[type] || vesselSvgs.default;
+
     return L.divIcon({
         className: "bg-transparent border-none",
         html: `
       <div style="display: flex; flex-direction: column; align-items: center; width: 60px; margin-left: -15px; margin-top: -15px;">
         <div style="transform: rotate(${heading}deg); transition: transform 1s ease;">
           <svg viewBox="0 0 24 24" width="30" height="30" fill="rgba(15, 23, 42, 0.8)" stroke="${color}" stroke-width="2">
-            <polygon points="12,2 20,20 12,17 4,20" />
+            ${svgContent}
           </svg>
         </div>
         <div style="color: ${color}; font-size: 10px; font-weight: bold; text-align: center; text-shadow: 1px 1px 2px black; margin-top: 4px; white-space: nowrap;">
@@ -40,8 +57,8 @@ const createVesselIcon = (color: string, heading: number, label: string) => {
     `,
         iconSize: [30, 30],
         iconAnchor: [15, 15],
-    })
-}
+    });
+};
 
 const getAlignmentColor = (alignment: Alignment) => {
     switch (alignment) {
@@ -159,7 +176,7 @@ export function TacticalMap() {
                 />
 
                 {/* --- MARQUEUR DU SOUS-MARIN JOUEUR --- */}
-                <Marker position={position} icon={createVesselIcon("#22d3ee", heading, 'VOTRE SOUS-MARIN')}>
+                <Marker position={position} icon={createVesselIcon("#22d3ee", heading, 'VOTRE SOUS-MARIN', 'submarine')}>
                     <Popup className="font-mono">
                         <div className="text-slate-900 font-bold mb-1">NOTRE POSITION</div>
 
@@ -178,7 +195,7 @@ export function TacticalMap() {
                     <Marker
                         key={contact.id}
                         position={contact.position}
-                        icon={createVesselIcon(getAlignmentColor(contact.alignment), contact.heading, contact.name)}
+                        icon={createVesselIcon(getAlignmentColor(contact.alignment), contact.heading, contact.name, contact.vesselType)}
                     >
                         <Popup className="font-mono">
                             <div className="text-slate-900 font-bold mb-1 uppercase">{contact.name}</div>
