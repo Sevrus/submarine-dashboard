@@ -53,6 +53,9 @@ interface SubmarineState {
     setTimeMultiplier: (multiplier: number) => void
     advanceTime: (dtRealSeconds: number) => void
     setGameTime: (timeMs: number) => void
+    // Traque Sonar
+    selectedBearing: number | null
+    setSelectedBearing: (bearing: number | null) => void
 
     getSonarStatus: () => { isBlind: boolean; reason: string | null }
     getVisibleContacts: () => Contact[]
@@ -73,6 +76,8 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
     isAlarmMuted: false,
     contactToPlace: null,
     setContactToPlace: (contactToPlace) => set({ contactToPlace }),
+    selectedBearing: null,
+    setSelectedBearing: (selectedBearing) => set({ selectedBearing }),
 
     contacts: [
         {

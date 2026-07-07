@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
-import { useSubmarineStore, getBearing, getDistanceNm } from '../store/useSubmarineStore';
+import { useEffect, useRef } from "react";
+import { useSubmarineStore, getBearing, getDistanceNm } from "../store/useSubmarineStore";
+import * as React from "react";
 
 const getThermalColor = (intensity: number) => {
     const i = Math.max(0, Math.min(1, intensity));
@@ -10,6 +11,24 @@ const getThermalColor = (intensity: number) => {
 
 export function SonarWaterfall() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+
+    // On récupère la fonction d'assignation
+    const setSelectedBearing = useSubmarineStore(s => s.setSelectedBearing);
+
+    // Gestion du clic sur la chute d'eau
+    const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        // On calcule la position Y relative du clic
+        const y = e.clientY - rect.top;
+        // On la convertit en degrés (0 à 360)
+        const clickedBearing = Math.round((y / rect.height) * 360);
+
+        // Si on clique sur un cap qu'on traquait déjà, ça le désélectionne
+        const currentBearing = useSubmarineStore.getState().selectedBearing;
+        setSelectedBearing(currentBearing === clickedBearing ? null : clickedBearing);
+    };
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -29,7 +48,7 @@ export function SonarWaterfall() {
             ctx.putImageData(imageData, 0, 0);
 
             // 2. Fond noir sur la nouvelle colonne (tout à droite)
-            ctx.fillStyle = '#000000';
+            ctx.fillStyle = "#000000";
             ctx.fillRect(width - 1, 0, 1, height);
 
             // 3. Bruit de fond marin sur la hauteur (axe Y)
@@ -99,6 +118,14 @@ export function SonarWaterfall() {
                 }
             }
 
+            // Dessin de la ligne de sélection (Tracker) sur le LOFAR
+            if (state.selectedBearing !== null) {
+                const yPos = Math.round((state.selectedBearing / 360) * height);
+                // Ligne jaune semi-transparente sur toute la largeur
+                ctx.fillStyle = 'rgba(250, 204, 21, 0.3)';
+                ctx.fillRect(0, yPos, width, 1);
+            }
+
             setTimeout(() => {
                 animationId = requestAnimationFrame(drawWaterfall);
             }, TICK_RATE_MS);
@@ -114,7 +141,6 @@ export function SonarWaterfall() {
             {/* Réglette d'azimut VERTICALE à gauche */}
             <div className="w-10 h-full bg-slate-950 border-r border-slate-800 flex relative text-[10px] text-slate-500 font-bold overflow-hidden select-none shrink-0">
                 {[0, 45, 90, 135, 180, 225, 270, 315].map(deg => (
-                    // Les graduations se placent de haut en bas
                     <div key={deg} className="absolute w-full flex items-center justify-between px-1" style={{ top: `${(deg / 360) * 100}%`, transform: 'translateY(-50%)' }}>
                         <span>{deg.toString().padStart(3, '0')}</span>
                         <div className="w-2 h-px bg-slate-700"></div>
@@ -126,6 +152,7 @@ export function SonarWaterfall() {
             <div className="flex-1 relative overflow-hidden">
                 <canvas
                     ref={canvasRef}
+                    onClick={handleCanvasClick}
                     width={720}
                     height={500}
                     className="w-full h-full absolute inset-0 mix-blend-screen"

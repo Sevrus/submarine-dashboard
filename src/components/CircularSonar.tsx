@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
-import { useSubmarineStore, getBearing, getDistanceNm } from '../store/useSubmarineStore';
+import { useEffect, useRef } from "react";
+import { useSubmarineStore, getBearing, getDistanceNm } from "../store/useSubmarineStore";
 
 export function CircularSonar() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -7,7 +7,7 @@ export function CircularSonar() {
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
         let animationId: number;
@@ -23,7 +23,7 @@ export function CircularSonar() {
             const radius = Math.min(centerX, centerY) - 20;
 
             // 1. Fond noir absolu
-            ctx.fillStyle = '#020617';
+            ctx.fillStyle = "#020617";
             ctx.fillRect(0, 0, width, height);
 
             // 2. Cercles de repère (purement décoratifs sur un panoramique)
@@ -92,11 +92,39 @@ export function CircularSonar() {
                 ctx.fill();
             }
 
+            // Dessin du curseur de traque (Chevron inversé)
+            if (state.selectedBearing !== null) {
+                const relativeBearing = state.selectedBearing - subHeading;
+                const angleRad = (relativeBearing - 90) * (Math.PI / 180);
+
+                ctx.save(); // On sauvegarde l'état du canvas
+
+                // On déplace le point d'origine au centre du radar, et on tourne le canvas vers la cible
+                ctx.translate(centerX, centerY);
+                ctx.rotate(angleRad);
+
+                // Configuration du style du chevron (Jaune/Ambre)
+                ctx.strokeStyle = '#facc15';
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#facc15';
+
+                ctx.beginPath();
+                // Dessin du "V" inversé (Pointe vers le centre, à cheval sur la bordure)
+                // L'axe X est maintenant directement aligné avec la cible grâce au ctx.rotate !
+                ctx.moveTo(radius + 12, -8); // Aile supérieure
+                ctx.lineTo(radius - 2, 0);   // Pointe du V (juste à l'intérieur du cercle)
+                ctx.lineTo(radius + 12, 8);  // Aile inférieure
+                ctx.stroke();
+
+                ctx.restore(); // On annule la rotation pour ne pas casser la suite du dessin
+            }
+
             // 5. La "Sweep" Visuelle (Le balayage)
             sweepAngle += 0.03; // Vitesse de rotation
 
             // Le cône de lumière qui balaye
-            ctx.fillStyle = 'rgba(34, 211, 238, 0.1)';
+            ctx.fillStyle = "rgba(34, 211, 238, 0.1)";
             ctx.beginPath();
             ctx.moveTo(centerX, centerY);
             ctx.arc(centerX, centerY, radius, sweepAngle, sweepAngle + 0.5);
@@ -104,7 +132,7 @@ export function CircularSonar() {
             ctx.fill();
 
             // La ligne de crête du balayage
-            ctx.strokeStyle = 'rgba(34, 211, 238, 0.8)';
+            ctx.strokeStyle = "rgba(34, 211, 238, 0.8)";
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(centerX, centerY);
