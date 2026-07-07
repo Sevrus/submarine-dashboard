@@ -23,7 +23,7 @@ function MapClickHandler() {
     return null;
 }
 
-import { vesselSvgs, type VesselIconType } from "./VesselIcons";
+import { vesselSvgs, type VesselIconType } from "../data/VesselIcons";
 
 const createVesselIcon = (color: string, heading: number, label: string, type: VesselIconType = 'default') => {
     const svgContent = vesselSvgs[type] || vesselSvgs.default;

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { type VesselIconType } from "../components/VesselIcons";
+import { type VesselIconType } from "../data/VesselIcons";
 
 export type ContactType = "civilian" | "military" | "unknown";
 export type VesselType = VesselIconType;

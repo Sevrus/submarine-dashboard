@@ -1,5 +1,5 @@
 import {useSubmarineStore, getDistanceNm, type Alignment, type ContactType, type VesselType} from "../store/useSubmarineStore";
-import {vesselSvgs} from "./VesselIcons";
+import {vesselSvgs} from "../data/VesselIcons";
 import * as React from "react";
 import {useState} from "react";
 
