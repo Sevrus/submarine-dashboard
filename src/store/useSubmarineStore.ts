@@ -1,12 +1,16 @@
 import { create } from "zustand";
 
+import { type VesselIconType } from "../data/VesselIcons";
+
 export type ContactType = "civilian" | "military" | "unknown";
+export type VesselType = VesselIconType;
 export type Alignment = "allié" | "neutre" | "hostile";
 
 export interface Contact {
     id: string
     name: string
     type: ContactType
+    vesselType: VesselType
     alignment: Alignment
     nationality: string
     position: [number, number]
@@ -75,6 +79,7 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
             id: crypto.randomUUID(),
             name: "FDI Amiral Cabanier",
             type: "military",
+            vesselType: "ship",
             alignment: "allié",
             nationality: "Française",
             position: [38.6, -27.8],

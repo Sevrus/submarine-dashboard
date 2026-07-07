@@ -23,14 +23,18 @@ function MapClickHandler() {
     return null;
 }
 
-const createVesselIcon = (color: string, heading: number, label: string) => {
+import { vesselSvgs, type VesselIconType } from "../data/VesselIcons";
+
+const createVesselIcon = (color: string, heading: number, label: string, type: VesselIconType = 'default') => {
+    const svgContent = vesselSvgs[type] || vesselSvgs.default;
+
     return L.divIcon({
         className: "bg-transparent border-none",
         html: `
-      <div style="display: flex; flex-direction: column; align-items: center; width: 60px; margin-left: -15px; margin-top: -15px;">
+      <div style="display: flex; flex-direction: column; align-items: center; width: 60px;">
         <div style="transform: rotate(${heading}deg); transition: transform 1s ease;">
           <svg viewBox="0 0 24 24" width="30" height="30" fill="rgba(15, 23, 42, 0.8)" stroke="${color}" stroke-width="2">
-            <polygon points="12,2 20,20 12,17 4,20" />
+            ${svgContent}
           </svg>
         </div>
         <div style="color: ${color}; font-size: 10px; font-weight: bold; text-align: center; text-shadow: 1px 1px 2px black; margin-top: 4px; white-space: nowrap;">
@@ -38,14 +42,14 @@ const createVesselIcon = (color: string, heading: number, label: string) => {
         </div>
       </div>
     `,
-        iconSize: [30, 30],
-        iconAnchor: [15, 15],
-    })
-}
+        iconSize: [60, 40],
+        iconAnchor: [30, 15],
+    });
+};
 
 const getAlignmentColor = (alignment: Alignment) => {
     switch (alignment) {
-        case "allié": return "#3b82f6"
+        case "allié": return "#34b019"
         case "neutre": return "#f59e0b"
         case "hostile": return "#ef4444"
         default: return "#94a3b8"
@@ -57,6 +61,20 @@ const formatCoords = (pos: [number, number]) => {
     const lng = Math.abs(pos[1]).toFixed(3) + (pos[1] >= 0 ? "°E" : "°W");
     return `${lat} - ${lng}`;
 }
+
+import * as React from "react";
+
+const PROJECTION_TIME_HOURS = 0.25; // 15 minutes
+
+const calculateNewPosition = (pos: [number, number], speed: number, heading: number, timeHours: number): [number, number] => {
+    if (speed === 0) return pos;
+    const distanceNm = speed * timeHours;
+    const headingRad = heading * (Math.PI / 180);
+    const latRad = pos[0] * (Math.PI / 180);
+    const latChange = (distanceNm * Math.cos(headingRad)) / 60;
+    const lngChange = (distanceNm * Math.sin(headingRad)) / (60 * Math.cos(latRad));
+    return [pos[0] + latChange, pos[1] + lngChange];
+};
 
 export function TacticalMap() {
     const { position, heading, speed, depth, sensorRange, getVisibleContacts, getSonarStatus, waypoints, isAlarmMuted, setAlarmMuted } = useSubmarineStore();
@@ -159,7 +177,7 @@ export function TacticalMap() {
                 />
 
                 {/* --- MARQUEUR DU SOUS-MARIN JOUEUR --- */}
-                <Marker position={position} icon={createVesselIcon("#22d3ee", heading, 'VOTRE SOUS-MARIN')}>
+                <Marker position={position} icon={createVesselIcon("#22d3ee", heading, 'VOTRE SOUS-MARIN', 'submarine')}>
                     <Popup className="font-mono">
                         <div className="text-slate-900 font-bold mb-1">NOTRE POSITION</div>
 
@@ -174,27 +192,42 @@ export function TacticalMap() {
                 </Marker>
 
                 {/* --- MARQUEURS DES CONTACTS --- */}
-                {visibleContacts.map((contact) => (
-                    <Marker
-                        key={contact.id}
-                        position={contact.position}
-                        icon={createVesselIcon(getAlignmentColor(contact.alignment), contact.heading, contact.name)}
-                    >
-                        <Popup className="font-mono">
-                            <div className="text-slate-900 font-bold mb-1 uppercase">{contact.name}</div>
-                            
-                            <div className="text-xs text-slate-500 font-bold mb-2 pb-1 border-b border-slate-200">
-                                {formatCoords(contact.position)}
-                            </div>
+                {visibleContacts.map((contact) => {
+                    const endPoint = calculateNewPosition(contact.position, contact.speed, contact.heading, PROJECTION_TIME_HOURS);
+                    const color = getAlignmentColor(contact.alignment);
 
-                            <div className="text-sm">Type: {contact.type}</div>
-                            <div className="text-sm">Nat: {contact.nationality}</div>
-                            <div className="text-sm">Vit: {contact.speed} nds</div>
-                            {contact.depth > 0 && <div className="text-sm">Prof: {contact.depth} m</div>}
-                            <div className="text-sm text-slate-500 mt-1 uppercase">Alignement: {contact.alignment}</div>
-                        </Popup>
-                    </Marker>
-                ))}
+                    return (
+                        <React.Fragment key={contact.id}>
+                            <Marker
+                                position={contact.position}
+                                icon={createVesselIcon(color, contact.heading, contact.name, contact.vesselType)}
+                            >
+                                <Popup className="font-mono">
+                                    <div className="text-slate-900 font-bold mb-1 uppercase">{contact.name}</div>
+
+                                    <div
+                                        className="text-xs text-slate-500 font-bold mb-2 pb-1 border-b border-slate-200">
+                                        {formatCoords(contact.position)}
+                                    </div>
+
+                                    <div className="text-sm">Type: {contact.type}</div>
+                                    <div className="text-sm">Nat: {contact.nationality}</div>
+                                    <div className="text-sm">Vit: {contact.speed} nds</div>
+                                    {contact.depth > 0 && <div className="text-sm">Prof: {contact.depth} m</div>}
+                                    <div className="text-sm text-slate-500 mt-1 uppercase">Alignement: {contact.alignment}</div>
+                                </Popup>
+                            </Marker>
+                            <Polyline
+                                positions={[contact.position, endPoint]}
+                                pathOptions={{
+                                    color,
+                                    weight: 1,
+                                    dashArray: "5, 5"
+                                }}
+                            />
+                        </React.Fragment>
+                    )
+                })}
             </MapContainer>
         </div>
     )

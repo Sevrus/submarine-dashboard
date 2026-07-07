@@ -1,8 +1,15 @@
-import {useSubmarineStore, type Alignment, getDistanceNm} from "../store/useSubmarineStore";
+import {useSubmarineStore, getDistanceNm, type Alignment, type ContactType, type VesselType} from "../store/useSubmarineStore";
+import {vesselSvgs} from "../data/VesselIcons";
 import * as React from "react";
+import {useState} from "react";
+
+const vesselTypeOptions = Object.keys(vesselSvgs) as VesselType[];
 
 export function MjPanel() {
     const store = useSubmarineStore()
+    const [newContactType, setNewContactType] = useState<ContactType>("unknown");
+    const [newVesselType, setNewVesselType] = useState<VesselType>("default");
+
 
     const handleAddContact = () => {
         const latOffset = (Math.random() - 0.5) * 0.1
@@ -10,7 +17,8 @@ export function MjPanel() {
 
         store.addContact({
             name: "Contact Inconnu",
-            type: "unknown",
+            type: newContactType,
+            vesselType: newVesselType,
             alignment: "neutre",
             nationality: "Inconnue",
             position: [store.position[0] + latOffset, store.position[1] + lngOffset],
@@ -185,9 +193,33 @@ export function MjPanel() {
                 <section className="flex flex-col gap-4">
                     <div className="flex justify-between items-end border-b border-slate-800 pb-2">
                         <h3 className="text-sm text-slate-400 uppercase tracking-widest">Contacts ({store.contacts.length})</h3>
-                        <button onClick={handleAddContact} className="bg-slate-800 hover:bg-slate-700 transition-colors text-xs px-3 py-1 rounded text-cyan-400 border border-slate-700">
-                            + Ajouter
-                        </button>
+                        <div className="flex-col">
+                            <div className="flex">
+                                <select
+                                    value={newContactType}
+                                    onChange={(e) => setNewContactType(e.target.value as ContactType)}
+                                    className="bg-slate-800 hover:bg-slate-700 transition-colors text-xs px-3 py-1 rounded text-cyan-400 border border-slate-700"
+                                >
+                                    <option value="unknown">Unknown</option>
+                                    <option value="civilian">Civilian</option>
+                                    <option value="military">Military</option>
+                                </select>
+                                <select
+                                    value={newVesselType}
+                                    onChange={(e) => setNewVesselType(e.target.value as VesselType)}
+                                    className="bg-slate-800 hover:bg-slate-700 transition-colors text-xs px-3 py-1 rounded text-cyan-400 border border-slate-700"
+                                >
+                                    {vesselTypeOptions.map(option => (
+                                        <option key={option} value={option}>
+                                            {option.charAt(0).toUpperCase() + option.slice(1)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <button onClick={handleAddContact} className="bg-slate-800 hover:bg-slate-700 transition-colors text-xs px-3 py-1 rounded text-cyan-400 border border-slate-700">
+                                + Ajouter
+                            </button>
+                        </div>
                     </div>
 
                     <div className="flex flex-col gap-4">
@@ -196,7 +228,6 @@ export function MjPanel() {
                             const isVisible = playersVisibleContacts.some(vc => vc.id === contact.id);
 
                             return (
-                                // 1. UTILISATION DE isVisible POUR LA COULEUR DE FOND
                                 <div key={contact.id} className={`p-3 rounded-lg border flex flex-col gap-3 shadow-inner transition-colors ${isVisible ? "bg-slate-950 border-slate-800" : "bg-slate-900/50 border-red-900/30"}`}>
 
                                     <div className="flex justify-between items-center border-b border-slate-800/50 pb-2 gap-2">
@@ -212,7 +243,6 @@ export function MjPanel() {
                                         <button onClick={() => store.removeContact(contact.id)} className="text-red-900 hover:text-red-500 transition-colors text-xs font-bold px-2">X</button>
                                     </div>
 
-                                    {/* 2. UTILISATION DE distanceNm ET isVisible POUR L'AFFICHAGE TEXTE */}
                                     <div className="flex justify-between items-center text-[10px]">
                                         <span className="uppercase text-slate-500">Distance</span>
                                         <span className={`font-bold ${isVisible ? "text-cyan-500" : "text-red-500"}`}>
@@ -224,9 +254,9 @@ export function MjPanel() {
                                         <div className="flex flex-col gap-1 col-span-2">
                                             <label className="text-[10px] text-slate-500 uppercase">Alignement</label>
                                             <select value={contact.alignment} onChange={(e) => store.updateContact(contact.id, { alignment: e.target.value as Alignment })} className="bg-slate-900 text-xs p-1.5 border border-slate-800 rounded text-slate-300 outline-none focus:border-slate-600">
-                                                <option value="allié">Allié (Bleu)</option>
-                                                <option value="neutre">Neutre (Jaune)</option>
-                                                <option value="hostile">Hostile (Rouge)</option>
+                                                <option value="allié">Allié</option>
+                                                <option value="neutre">Neutre</option>
+                                                <option value="hostile">Hostile</option>
                                             </select>
                                         </div>
                                         <div className="flex flex-col gap-1">
