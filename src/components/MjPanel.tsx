@@ -228,7 +228,6 @@ export function MjPanel() {
                             const isVisible = playersVisibleContacts.some(vc => vc.id === contact.id);
 
                             return (
-                                // 1. UTILISATION DE isVisible POUR LA COULEUR DE FOND
                                 <div key={contact.id} className={`p-3 rounded-lg border flex flex-col gap-3 shadow-inner transition-colors ${isVisible ? "bg-slate-950 border-slate-800" : "bg-slate-900/50 border-red-900/30"}`}>
 
                                     <div className="flex justify-between items-center border-b border-slate-800/50 pb-2 gap-2">
@@ -244,7 +243,6 @@ export function MjPanel() {
                                         <button onClick={() => store.removeContact(contact.id)} className="text-red-900 hover:text-red-500 transition-colors text-xs font-bold px-2">X</button>
                                     </div>
 
-                                    {/* 2. UTILISATION DE distanceNm ET isVisible POUR L'AFFICHAGE TEXTE */}
                                     <div className="flex justify-between items-center text-[10px]">
                                         <span className="uppercase text-slate-500">Distance</span>
                                         <span className={`font-bold ${isVisible ? "text-cyan-500" : "text-red-500"}`}>
@@ -256,9 +254,9 @@ export function MjPanel() {
                                         <div className="flex flex-col gap-1 col-span-2">
                                             <label className="text-[10px] text-slate-500 uppercase">Alignement</label>
                                             <select value={contact.alignment} onChange={(e) => store.updateContact(contact.id, { alignment: e.target.value as Alignment })} className="bg-slate-900 text-xs p-1.5 border border-slate-800 rounded text-slate-300 outline-none focus:border-slate-600">
-                                                <option value="allié">Allié (Bleu)</option>
-                                                <option value="neutre">Neutre (Jaune)</option>
-                                                <option value="hostile">Hostile (Rouge)</option>
+                                                <option value="allié">Allié</option>
+                                                <option value="neutre">Neutre</option>
+                                                <option value="hostile">Hostile</option>
                                             </select>
                                         </div>
                                         <div className="flex flex-col gap-1">

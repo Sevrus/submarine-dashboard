@@ -49,7 +49,7 @@ const createVesselIcon = (color: string, heading: number, label: string, type: V
 
 const getAlignmentColor = (alignment: Alignment) => {
     switch (alignment) {
-        case "allié": return "#3b82f6"
+        case "allié": return "#34b019"
         case "neutre": return "#f59e0b"
         case "hostile": return "#ef4444"
         default: return "#94a3b8"
@@ -186,7 +186,7 @@ export function TacticalMap() {
                     >
                         <Popup className="font-mono">
                             <div className="text-slate-900 font-bold mb-1 uppercase">{contact.name}</div>
-                            
+
                             <div className="text-xs text-slate-500 font-bold mb-2 pb-1 border-b border-slate-200">
                                 {formatCoords(contact.position)}
                             </div>
