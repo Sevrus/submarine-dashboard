@@ -1,7 +1,9 @@
 import { create } from "zustand";
 
+import { type VesselIconType } from "../components/VesselIcons";
+
 export type ContactType = "civilian" | "military" | "unknown";
-export type VesselType = "submarine" | "ship" | "default";
+export type VesselType = VesselIconType;
 export type Alignment = "allié" | "neutre" | "hostile";
 
 export interface Contact {

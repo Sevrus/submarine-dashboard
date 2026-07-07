@@ -1,6 +1,9 @@
 import {useSubmarineStore, getDistanceNm, type Alignment, type ContactType, type VesselType} from "../store/useSubmarineStore";
+import {vesselSvgs} from "./VesselIcons";
 import * as React from "react";
 import {useState} from "react";
+
+const vesselTypeOptions = Object.keys(vesselSvgs) as VesselType[];
 
 export function MjPanel() {
     const store = useSubmarineStore()
@@ -206,9 +209,11 @@ export function MjPanel() {
                                     onChange={(e) => setNewVesselType(e.target.value as VesselType)}
                                     className="bg-slate-800 hover:bg-slate-700 transition-colors text-xs px-3 py-1 rounded text-cyan-400 border border-slate-700"
                                 >
-                                    <option value="default">Default</option>
-                                    <option value="ship">Ship</option>
-                                    <option value="submarine">Submarine</option>
+                                    {vesselTypeOptions.map(option => (
+                                        <option key={option} value={option}>
+                                            {option.charAt(0).toUpperCase() + option.slice(1)}
+                                        </option>
+                                    ))}
                                 </select>
                             </div>
                             <button onClick={handleAddContact} className="bg-slate-800 hover:bg-slate-700 transition-colors text-xs px-3 py-1 rounded text-cyan-400 border border-slate-700">
