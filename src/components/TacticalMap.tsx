@@ -52,6 +52,12 @@ const getAlignmentColor = (alignment: Alignment) => {
     }
 }
 
+const formatCoords = (pos: [number, number]) => {
+    const lat = Math.abs(pos[0]).toFixed(3) + (pos[0] >= 0 ? "°N" : "°S");
+    const lng = Math.abs(pos[1]).toFixed(3) + (pos[1] >= 0 ? "°E" : "°W");
+    return `${lat} - ${lng}`;
+}
+
 export function TacticalMap() {
     const { position, heading, speed, depth, sensorRange, getVisibleContacts, getSonarStatus, waypoints, isAlarmMuted, setAlarmMuted } = useSubmarineStore();
 
@@ -152,15 +158,22 @@ export function TacticalMap() {
                     }}
                 />
 
-                <Marker position={position} icon={createVesselIcon("#22d3ee", heading, "CASABIANCA")}>
+                {/* --- MARQUEUR DU SOUS-MARIN JOUEUR --- */}
+                <Marker position={position} icon={createVesselIcon("#22d3ee", heading, 'VOTRE SOUS-MARIN')}>
                     <Popup className="font-mono">
                         <div className="text-slate-900 font-bold mb-1">NOTRE POSITION</div>
+
+                        <div className="text-xs text-slate-500 font-bold mb-2 pb-1 border-b border-slate-200">
+                            {formatCoords(position)}
+                        </div>
+
                         <div className="text-sm">Prof: {depth} m</div>
                         <div className="text-sm">Vit: {speed} nds</div>
                         <div className="text-sm">Cap: {heading}°</div>
                     </Popup>
                 </Marker>
 
+                {/* --- MARQUEURS DES CONTACTS --- */}
                 {visibleContacts.map((contact) => (
                     <Marker
                         key={contact.id}
@@ -169,6 +182,11 @@ export function TacticalMap() {
                     >
                         <Popup className="font-mono">
                             <div className="text-slate-900 font-bold mb-1 uppercase">{contact.name}</div>
+                            
+                            <div className="text-xs text-slate-500 font-bold mb-2 pb-1 border-b border-slate-200">
+                                {formatCoords(contact.position)}
+                            </div>
+
                             <div className="text-sm">Type: {contact.type}</div>
                             <div className="text-sm">Nat: {contact.nationality}</div>
                             <div className="text-sm">Vit: {contact.speed} nds</div>
