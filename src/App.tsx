@@ -1,15 +1,14 @@
-import {useEffect, useState} from "react";
+import { useEffect } from "react";
 import { useSubmarineStore } from "./store/useSubmarineStore";
 import { Compass } from "./components/Compass";
 import { PitchIndicator } from "./components/PitchIndicator";
 import { TacticalMap } from "./components/TacticalMap";
 import { MjPanel } from "./components/MjPanel";
 import { SonarWaterfall } from "./components/SonarWaterfall";
+import { CircularSonar } from "./components/CircularSonar";
 
 function App() {
-  const { depth, speed, heading, pitch, advanceTime, gameTime, targetDepth } = useSubmarineStore();
-
-  const [activeScreen, setActiveScreen] = useState<"MAP" | "SONAR">("SONAR");
+  const { depth, speed, heading, pitch, advanceTime, gameTime, targetDepth } = useSubmarineStore()
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -18,54 +17,44 @@ function App() {
     return () => clearInterval(interval)
   }, [advanceTime])
 
-  // --- FORMATAGE DES HORLOGES ---
-  const timeDate = new Date(gameTime);
-
-  const gmtTime = timeDate.toLocaleTimeString("fr-FR", {
-    timeZone: "UTC",
-    hour: "2-digit", minute: "2-digit", second: "2-digit"
-  });
+  const gmtTime = new Date(gameTime).toLocaleTimeString("en-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit", second: "2-digit" })
 
   return (
       <div className="flex h-screen w-full bg-slate-950 text-cyan-50 font-mono overflow-hidden">
 
         <main className="flex-1 flex flex-col relative">
 
-          {/* BARRE D'ONGLETS JOUEURS */}
-          <header className="h-10 bg-slate-900 border-b border-slate-800 flex px-4 gap-2 items-end z-20 shrink-0">
-            <button
-                onClick={() => setActiveScreen('MAP')}
-                className={`px-4 py-2 text-xs font-bold rounded-t-lg transition-colors ${activeScreen === 'MAP' ? 'bg-slate-800 text-cyan-400 border-t-2 border-cyan-500' : 'bg-slate-950 text-slate-500 hover:text-slate-300'}`}
-            >
-              CARTE TACTIQUE (TMA)
-            </button>
-            <button
-                onClick={() => setActiveScreen('SONAR')}
-                className={`px-4 py-2 text-xs font-bold rounded-t-lg transition-colors flex items-center gap-2 ${activeScreen === 'SONAR' ? 'bg-slate-800 text-emerald-400 border-t-2 border-emerald-500' : 'bg-slate-950 text-slate-500 hover:text-slate-300'}`}
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              SONAR BANDE LARGE
-            </button>
-          </header>
+          {/* ZONE D'AFFICHAGE TACTIQUE (Split 70/30) */}
+          <div className="flex-1 relative flex flex-row">
 
-          <div className="flex-1 relative bg-slate-900 flex items-center justify-center">
-            {/* HORLOGES HUD */}
+            {/* HUD COMMUN (Temps) */}
             <div className="absolute top-4 left-4 z-1000 pointer-events-none flex flex-col gap-2">
               <div className="bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded flex items-center justify-between gap-4 backdrop-blur-sm shadow-lg">
-                <span className="text-xs text-slate-500 font-bold tracking-widest">ZULU (GMT)</span>
+                <span className="text-xs text-slate-500 font-bold tracking-widest">ZULU</span>
                 <span className="text-cyan-400 font-bold text-xl drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]">{gmtTime}</span>
               </div>
             </div>
 
-            <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-size-[100%_4px,3px_100%] z-10 opacity-20"></div>
-
-            {/* AFFICHAGE CONDITIONNEL DE L'ÉCRAN */}
-            <div className="absolute inset-0">
-              {activeScreen === 'MAP' ? <TacticalMap /> : <SonarWaterfall />}
+            {/* PARTIE GAUCHE : 70% LOFAR */}
+            <div className="w-[70%] h-full relative border-r border-slate-800">
+              <SonarWaterfall />
             </div>
+
+            {/* PARTIE DROITE : 30% STACKED (Panoramique + TMA) */}
+            <div className="w-[30%] h-full flex flex-col">
+              <div className="h-[50%] relative border-b border-slate-800">
+                <CircularSonar />
+              </div>
+              <div className="h-[50%] relative bg-slate-900">
+                <TacticalMap />
+              </div>
+            </div>
+
+            {/* Effet Scanline Global */}
+            <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%),linear-gradient(90deg,rgba(255,0,0,0.06),rgba(0,255,0,0.02),rgba(0,0,255,0.06))] bg-size-[100%_4px,3px_100%] z-10 opacity-10"></div>
           </div>
 
-          <div className="h-72 bg-slate-900 border-t border-slate-800 p-6 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-20">
+          <div className="h-72 bg-slate-900 border-t border-slate-800 p-6 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-20 shrink-0">
 
             <div className="flex gap-6 h-full">
               {/* Bloc Profondeur & Vitesse */}
@@ -111,4 +100,4 @@ function App() {
   )
 }
 
-export default App
+export default App;
