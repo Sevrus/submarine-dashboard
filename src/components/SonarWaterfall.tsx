@@ -39,6 +39,17 @@ export function SonarWaterfall() {
         const TICK_RATE_MS = 50;
         let animationId: number;
 
+        // Gestion de la faune marine (Biologiques)
+        interface BioContact {
+            yPos: number;
+            drift: number;        // Vitesse de dérive (ondulation)
+            phase: number;        // Pour faire pulser le son (onde sinusoïdale)
+            life: number;         // Temps à vivre
+            maxLife: number;      // Durée de vie totale pour le fondu (fade in/out)
+            baseIntensity: number;
+        }
+        let biologicals: BioContact[] = [];
+
         const drawWaterfall = () => {
             const width = canvas.width;
             const height = canvas.height;
@@ -106,6 +117,51 @@ export function SonarWaterfall() {
                     ctx.fillStyle = getThermalColor(intensity);
                     ctx.fillRect(width - 1, yPos - Math.floor(signalWidth / 2), 1, Math.max(1, signalWidth));
                 });
+
+                // Écosystème Biologique
+                    // 1. Apparition aléatoire d'un nouvel animal (environ 0.5% de chance par tick)
+                    if (Math.random() < 0.005) {
+                        biologicals.push({
+                            yPos: Math.random() * height, // Apparaît n'importe où sur 360°
+                            drift: (Math.random() - 0.5) * 0.5, // Dérive très lente
+                            phase: Math.random() * Math.PI * 2,
+                            life: 0,
+                            maxLife: 200 + Math.random() * 300, // Vit entre 10 et 25 secondes
+                            baseIntensity: 0.2 + Math.random() * 0.3 // Jamais aussi fort qu'un navire de guerre
+                        });
+                    }
+
+                    // 2. Mise à jour et dessin de la faune
+                    biologicals = biologicals.filter(bio => {
+                        bio.life++;
+
+                        // L'animal se déplace très légèrement (ondulation)
+                        bio.yPos += Math.sin(bio.phase) * bio.drift;
+                        bio.phase += 0.05;
+
+                        // Calcul de l'intensité avec un effet de fondu au début et à la fin de sa vie
+                        const lifeRatio = bio.life / bio.maxLife;
+                        // Courbe en cloche : monte doucement, reste, descend doucement
+                        const fadeMultiplier = Math.sin(lifeRatio * Math.PI);
+
+                        // Le chant de l'animal pulse
+                        const pulse = (Math.sin(bio.phase * 0.5) + 1) / 2;
+
+                        const finalIntensity = bio.baseIntensity * fadeMultiplier * pulse;
+
+                        if (finalIntensity > 0.05) {
+                            // Un signal biologique est plus "flou" et plus large qu'une hélice
+                            const bioWidth = 2 + Math.random() * 2;
+
+                            // On utilise des couleurs froides (Bleu/Cyan/Vert pâle) pour la faune
+                            ctx.fillStyle = getThermalColor(finalIntensity * 0.7);
+                            ctx.fillRect(width - 1, Math.round(bio.yPos) - Math.floor(bioWidth/2), 1, bioWidth);
+                        }
+
+                        // On garde l'animal en vie tant qu'il n'a pas atteint sa durée max
+                        return bio.life < bio.maxLife;
+                    });
+
             } else {
                 // 5. Brouillage (Cavitation) sur la colonne de droite
                 for (let y = 0; y < height; y += 4) {
