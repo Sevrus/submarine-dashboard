@@ -54,130 +54,103 @@ export function SonarWaterfall() {
             const width = canvas.width;
             const height = canvas.height;
 
+            // ON RÉCUPÈRE L'ÉTAT PLUS TÔT POUR AVOIR LA VITESSE DU SOUS-MARIN
+            const state = useSubmarineStore.getState();
+            const currentSpeed = state.speed;
+
             // 1. FLUX HORIZONTAL : On décale l'image d'un pixel vers la GAUCHE
             const imageData = ctx.getImageData(1, 0, width - 1, height);
             ctx.putImageData(imageData, 0, 0);
 
-            // 2. Fond noir sur la nouvelle colonne (tout à droite)
-            ctx.fillStyle = "#000000";
+            // NOUVEAU : Calcul du Bruit Propre (Flow Noise)
+            // L'eau commence à saturer les hydrophones au-delà de 10 nœuds.
+            // À 40 nœuds, le ratio est de 1.0 (saturation maximale).
+            const flowNoiseRatio = Math.max(0, (currentSpeed - 10) / 30);
+
+            // 2. Fond de la nouvelle colonne (tout à droite)
+            // Le silence complet (noir) laisse place à un fond "chaud" à haute vitesse
+            const backgroundIntensity = flowNoiseRatio * 0.25;
+            ctx.fillStyle = getThermalColor(backgroundIntensity);
             ctx.fillRect(width - 1, 0, 1, height);
 
-            // 3. Bruit de fond marin sur la hauteur (axe Y)
+            // 3. Bruit de fond marin + Turbulences d'eau sur la coque
             for (let y = 0; y < height; y += 2) {
                 if (Math.random() > 0.85) {
-                    const noiseIntensity = Math.random() * 0.15;
-                    ctx.fillStyle = getThermalColor(noiseIntensity);
-                    // On dessine le pixel sur la dernière colonne à droite
-                    ctx.fillRect(width - 1, y, 1, 1);
+                    const ambientNoise = Math.random() * 0.15;
+                    const turbulenceNoise = Math.random() * flowNoiseRatio * 0.6;
+                    const totalNoiseIntensity = ambientNoise + turbulenceNoise;
+
+                    ctx.fillStyle = getThermalColor(totalNoiseIntensity);
+                    const noiseSize = currentSpeed > 25 && Math.random() > 0.5 ? 2 : 1;
+                    ctx.fillRect(width - 1, y, 1, noiseSize);
                 }
             }
 
-            const state = useSubmarineStore.getState();
-            const { isBlind } = state.getSonarStatus();
+            // 4. Dessiner les contacts (Plus de condition isBlind, la physique masque naturellement les signaux)
+            state.contacts.forEach(contact => {
+                const dist = getDistanceNm(state.position, contact.position);
+                if (dist > state.sensorRange) return;
 
-            // 4. Dessiner les contacts
-            if (!isBlind) {
-                state.contacts.forEach(contact => {
-                    const dist = getDistanceNm(state.position, contact.position);
-                    if (dist > state.sensorRange) return;
+                const baseNoise = contact.speed / 35;
+                const proximityBonus = 1 - (dist / state.sensorRange);
+                const intensity = Math.min(1, (baseNoise * 0.7) + (proximityBonus * 0.4) + 0.15);
 
-                    const baseNoise = contact.speed / 35;
-                    const proximityBonus = 1 - (dist / state.sensorRange);
-                    const intensity = Math.min(1, (baseNoise * 0.7) + (proximityBonus * 0.4) + 0.15);
+                if (intensity < 0.2) return;
 
-                    if (intensity < 0.2) return;
+                const trueBearing = getBearing(state.position, contact.position);
+                const yPos = Math.round((trueBearing / 360) * height);
+                const signalWidth = Math.max(1, Math.floor(contact.speed / 5));
 
-                    const trueBearing = getBearing(state.position, contact.position);
-                    // L'axe des caps est maintenant VERTICAL (Y)
-                    const yPos = Math.round((trueBearing / 360) * height);
+                if (intensity > 0.4) {
+                    ctx.fillStyle = getThermalColor(intensity * 0.4);
+                    ctx.fillRect(width - 1, yPos - signalWidth * 2, 1, signalWidth * 4);
+                }
 
-                    // L'épaisseur du signal de base
-                    const signalWidth = Math.max(1, Math.floor(contact.speed / 5));
+                const railOffset = Math.max(3, Math.floor(contact.speed / 2.5));
+                if (contact.speed > 0 && intensity > 0.3) {
+                    ctx.fillStyle = getThermalColor(intensity * 0.85);
+                    ctx.fillRect(width - 1, yPos - railOffset, 1, 1);
+                    ctx.fillRect(width - 1, yPos + railOffset, 1, 1);
+                }
 
-                    // Halo acoustique (Le bruit de fond de l'écoulement de l'eau)
-                    if (intensity > 0.4) {
-                        ctx.fillStyle = getThermalColor(intensity * 0.4);
-                        ctx.fillRect(width - 1, yPos - signalWidth * 2, 1, signalWidth * 4);
-                    }
+                ctx.fillStyle = getThermalColor(intensity);
+                ctx.fillRect(width - 1, yPos - Math.floor(signalWidth / 2), 1, Math.max(1, signalWidth));
+            });
 
-                    // Les "Rails" / Harmoniques d'hélice (Sidebands)
-                    // L'écartement dépend directement de la vitesse (vitesse de rotation)
-                    const railOffset = Math.max(3, Math.floor(contact.speed / 2.5));
-
-                    // Un navire à l'arrêt complet (0 nds) ne génère pas de sidebands d'hélice
-                    if (contact.speed > 0 && intensity > 0.3) {
-                        ctx.fillStyle = getThermalColor(intensity * 0.85); // Presque aussi chaud que le centre
-                        // Rail supérieur
-                        ctx.fillRect(width - 1, yPos - railOffset, 1, 1);
-                        // Rail inférieur
-                        ctx.fillRect(width - 1, yPos + railOffset, 1, 1);
-                    }
-
-                    // 3. Trace centrale (Cœur de chauffe de la machinerie)
-                    ctx.fillStyle = getThermalColor(intensity);
-                    ctx.fillRect(width - 1, yPos - Math.floor(signalWidth / 2), 1, Math.max(1, signalWidth));
+            // 5. Écosystème Biologique
+            if (Math.random() < 0.005) {
+                biologicals.push({
+                    yPos: Math.random() * height,
+                    drift: (Math.random() - 0.5) * 0.5,
+                    phase: Math.random() * Math.PI * 2,
+                    life: 0,
+                    maxLife: 200 + Math.random() * 300,
+                    baseIntensity: 0.2 + Math.random() * 0.3
                 });
-
-                // Écosystème Biologique
-                    // 1. Apparition aléatoire d'un nouvel animal (environ 0.5% de chance par tick)
-                    if (Math.random() < 0.005) {
-                        biologicals.push({
-                            yPos: Math.random() * height, // Apparaît n'importe où sur 360°
-                            drift: (Math.random() - 0.5) * 0.5, // Dérive très lente
-                            phase: Math.random() * Math.PI * 2,
-                            life: 0,
-                            maxLife: 200 + Math.random() * 300, // Vit entre 10 et 25 secondes
-                            baseIntensity: 0.2 + Math.random() * 0.3 // Jamais aussi fort qu'un navire de guerre
-                        });
-                    }
-
-                    // 2. Mise à jour et dessin de la faune
-                    biologicals = biologicals.filter(bio => {
-                        bio.life++;
-
-                        // L'animal se déplace très légèrement (ondulation)
-                        bio.yPos += Math.sin(bio.phase) * bio.drift;
-                        bio.phase += 0.05;
-
-                        // Calcul de l'intensité avec un effet de fondu au début et à la fin de sa vie
-                        const lifeRatio = bio.life / bio.maxLife;
-                        // Courbe en cloche : monte doucement, reste, descend doucement
-                        const fadeMultiplier = Math.sin(lifeRatio * Math.PI);
-
-                        // Le chant de l'animal pulse
-                        const pulse = (Math.sin(bio.phase * 0.5) + 1) / 2;
-
-                        const finalIntensity = bio.baseIntensity * fadeMultiplier * pulse;
-
-                        if (finalIntensity > 0.05) {
-                            // Un signal biologique est plus "flou" et plus large qu'une hélice
-                            const bioWidth = 2 + Math.random() * 2;
-
-                            // On utilise des couleurs froides (Bleu/Cyan/Vert pâle) pour la faune
-                            ctx.fillStyle = getThermalColor(finalIntensity * 0.7);
-                            ctx.fillRect(width - 1, Math.round(bio.yPos) - Math.floor(bioWidth/2), 1, bioWidth);
-                        }
-
-                        // On garde l'animal en vie tant qu'il n'a pas atteint sa durée max
-                        return bio.life < bio.maxLife;
-                    });
-
-            } else {
-                // 5. Brouillage (Cavitation) sur la colonne de droite
-                for (let y = 0; y < height; y += 4) {
-                    if (Math.random() > 0.5) {
-                        const noiseIntensity = 0.6 + (Math.random() * 0.4);
-                        ctx.fillStyle = getThermalColor(noiseIntensity);
-                        // Des "blocs" de bruit verticaux
-                        ctx.fillRect(width - 1, y, 1, 4);
-                    }
-                }
             }
+
+            biologicals = biologicals.filter(bio => {
+                bio.life++;
+                bio.yPos += Math.sin(bio.phase) * bio.drift;
+                bio.phase += 0.05;
+
+                const lifeRatio = bio.life / bio.maxLife;
+                const fadeMultiplier = Math.sin(lifeRatio * Math.PI);
+                const pulse = (Math.sin(bio.phase * 0.5) + 1) / 2;
+                const finalIntensity = bio.baseIntensity * fadeMultiplier * pulse;
+
+                if (finalIntensity > 0.05) {
+                    const bioWidth = 2 + Math.random() * 2;
+                    ctx.fillStyle = getThermalColor(finalIntensity * 0.7);
+                    ctx.fillRect(width - 1, Math.round(bio.yPos) - Math.floor(bioWidth/2), 1, bioWidth);
+                }
+
+                return bio.life < bio.maxLife;
+            });
 
             // Dessin de la ligne de sélection (Tracker) sur le LOFAR
             if (state.selectedBearing !== null) {
                 const yPos = Math.round((state.selectedBearing / 360) * height);
-                // Ligne jaune semi-transparente sur toute la largeur
                 ctx.fillStyle = 'rgba(250, 204, 21, 0.3)';
                 ctx.fillRect(0, yPos, width, 1);
             }
