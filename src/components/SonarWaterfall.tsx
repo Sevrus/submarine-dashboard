@@ -1,6 +1,6 @@
+import * as React from "react";
 import { useEffect, useRef } from "react";
 import { useSubmarineStore, getBearing, getDistanceNm } from "../store/useSubmarineStore";
-import * as React from "react";
 
 const getThermalColor = (intensity: number) => {
     const i = Math.max(0, Math.min(1, intensity));
@@ -39,41 +39,47 @@ export function SonarWaterfall() {
         const TICK_RATE_MS = 50;
         let animationId: number;
 
-        // Gestion de la faune marine (Biologiques)
+        // --- VARIABLES GLOBALES DE L'ANIMATION ---
+
+        // 1. Faune marine (Biologiques)
         interface BioContact {
             yPos: number;
-            drift: number;        // Vitesse de dérive (ondulation)
-            phase: number;        // Pour faire pulser le son (onde sinusoïdale)
-            life: number;         // Temps à vivre
-            maxLife: number;      // Durée de vie totale pour le fondu (fade in/out)
+            drift: number;
+            phase: number;
+            life: number;
+            maxLife: number;
             baseIntensity: number;
         }
         let biologicals: BioContact[] = [];
 
+        // 2. Bruits transitoires (Flashs et Profondeur)
+        let transientFlash = 0;
+        let lastDepth = useSubmarineStore.getState().depth;
+
+        // --- BOUCLE DE DESSIN ---
         const drawWaterfall = () => {
             const width = canvas.width;
             const height = canvas.height;
 
-            // ON RÉCUPÈRE L'ÉTAT PLUS TÔT POUR AVOIR LA VITESSE DU SOUS-MARIN
             const state = useSubmarineStore.getState();
             const currentSpeed = state.speed;
+            const currentDepth = state.depth;
+
+            // DÉCLARATION ICI : On vérifie la variation de profondeur
+            const isActivelyChangingDepth = Math.abs(currentDepth - lastDepth) > 0.05;
+            lastDepth = currentDepth; // Mise à jour pour la frame suivante
 
             // 1. FLUX HORIZONTAL : On décale l'image d'un pixel vers la GAUCHE
             const imageData = ctx.getImageData(1, 0, width - 1, height);
             ctx.putImageData(imageData, 0, 0);
 
-            // NOUVEAU : Calcul du Bruit Propre (Flow Noise)
-            // L'eau commence à saturer les hydrophones au-delà de 10 nœuds.
-            // À 40 nœuds, le ratio est de 1.0 (saturation maximale).
+            // 2. Calcul du Bruit Propre (Flow Noise)
             const flowNoiseRatio = Math.max(0, (currentSpeed - 10) / 30);
-
-            // 2. Fond de la nouvelle colonne (tout à droite)
-            // Le silence complet (noir) laisse place à un fond "chaud" à haute vitesse
             const backgroundIntensity = flowNoiseRatio * 0.25;
             ctx.fillStyle = getThermalColor(backgroundIntensity);
             ctx.fillRect(width - 1, 0, 1, height);
 
-            // 3. Bruit de fond marin + Turbulences d'eau sur la coque
+            // 3. Bruit de fond marin + Turbulences
             for (let y = 0; y < height; y += 2) {
                 if (Math.random() > 0.85) {
                     const ambientNoise = Math.random() * 0.15;
@@ -86,7 +92,24 @@ export function SonarWaterfall() {
                 }
             }
 
-            // 4. Dessiner les contacts (Plus de condition isBlind, la physique masque naturellement les signaux)
+            // 4. Bruits Transitoires (Craquements de coque)
+            if (isActivelyChangingDepth && Math.random() < 0.02) {
+                transientFlash = 0.6 + Math.random() * 0.4;
+            } else if (Math.random() < 0.0003) {
+                transientFlash = 0.4 + Math.random() * 0.4;
+            }
+
+            if (transientFlash > 0) {
+                for (let y = 0; y < height; y += 3) {
+                    if (Math.random() < transientFlash) {
+                        ctx.fillStyle = getThermalColor(transientFlash);
+                        ctx.fillRect(width - 1, y, 1 + Math.random() * 2, 1);
+                    }
+                }
+                transientFlash = Math.max(0, transientFlash - 0.25);
+            }
+
+            // 5. Dessiner les contacts (Militaires)
             state.contacts.forEach(contact => {
                 const dist = getDistanceNm(state.position, contact.position);
                 if (dist > state.sensorRange) return;
@@ -117,7 +140,7 @@ export function SonarWaterfall() {
                 ctx.fillRect(width - 1, yPos - Math.floor(signalWidth / 2), 1, Math.max(1, signalWidth));
             });
 
-            // 5. Écosystème Biologique
+            // 6. Écosystème Biologique
             if (Math.random() < 0.005) {
                 biologicals.push({
                     yPos: Math.random() * height,
@@ -142,13 +165,13 @@ export function SonarWaterfall() {
                 if (finalIntensity > 0.05) {
                     const bioWidth = 2 + Math.random() * 2;
                     ctx.fillStyle = getThermalColor(finalIntensity * 0.7);
-                    ctx.fillRect(width - 1, Math.round(bio.yPos) - Math.floor(bioWidth/2), 1, bioWidth);
+                    ctx.fillRect(width - 1, Math.round(bio.yPos) - Math.floor(bioWidth / 2), 1, bioWidth);
                 }
 
                 return bio.life < bio.maxLife;
             });
 
-            // Dessin de la ligne de sélection (Tracker) sur le LOFAR
+            // 7. Ligne de sélection (Tracker) sur le LOFAR
             if (state.selectedBearing !== null) {
                 const yPos = Math.round((state.selectedBearing / 360) * height);
                 ctx.fillStyle = 'rgba(250, 204, 21, 0.3)';
