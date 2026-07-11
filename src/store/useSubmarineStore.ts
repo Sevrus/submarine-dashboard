@@ -22,6 +22,12 @@ export const VESSEL_DICTIONARY: Record<string, AcousticSignature> = {
     "CARGO": { id: "CARGO", className: "Navire Marchand", baseFreq: 650, bladeCount: 4 },
 };
 
+// L'interface pour un point de donnée TMA
+export interface TmaDataPoint {
+    timestamp: number; // L'heure de la mesure
+    bearing: number;   // Le cap relevé
+}
+
 export interface Contact {
     id: string;
     name: string;
@@ -77,6 +83,10 @@ interface SubmarineState {
     getSonarStatus: () => { isBlind: boolean; reason: string | null };
     getVisibleContacts: () => Contact[];
     getRouteDistance: () => number;
+
+    tmaHistory: TmaDataPoint[];
+    recordTmaPoint: () => void;
+    clearTmaHistory: () => void;
 }
 
 export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
@@ -95,6 +105,23 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
     setContactToPlace: (contactToPlace) => set({ contactToPlace }),
     selectedBearing: null,
     setSelectedBearing: (selectedBearing) => set({ selectedBearing }),
+
+    tmaHistory: [],
+
+    recordTmaPoint: () => {
+        const { selectedBearing } = get();
+        if (selectedBearing !== null) {
+            set((state) => ({
+                // On garde les 30 derniers relevés maximum pour ne pas saturer la mémoire
+                tmaHistory: [
+                    ...state.tmaHistory,
+                    { timestamp: Date.now(), bearing: selectedBearing }
+                ].slice(-30)
+            }));
+        }
+    },
+
+    clearTmaHistory: () => set({ tmaHistory: [] }),
 
     contacts: [
         {
