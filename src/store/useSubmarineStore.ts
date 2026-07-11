@@ -6,60 +6,77 @@ export type ContactType = "civilian" | "military" | "unknown";
 export type VesselType = VesselIconType;
 export type Alignment = "allié" | "neutre" | "hostile";
 
+// Dictionnaire des signatures acoustiques
+export interface AcousticSignature {
+    id: string;
+    className: string;
+    baseFreq: number;    // Fréquence fondamentale de la machinerie (en Hertz)
+    bladeCount: number;  // Nombre de pales de l'hélice
+}
+
+export const VESSEL_DICTIONARY: Record<string, AcousticSignature> = {
+    "AKULA": { id: "AKULA", className: "Classe Akula (SSN)", baseFreq: 50, bladeCount: 7 },
+    "KILO": { id: "KILO", className: "Classe Kilo (SSK)", baseFreq: 120, bladeCount: 6 },
+    "FREMM": { id: "FREMM", className: "Frégate Multi-Missions", baseFreq: 300, bladeCount: 5 },
+    "FDI": { id: "FDI", className: "Frégate de Défense et d'Intervention", baseFreq: 280, bladeCount: 5 },
+    "CARGO": { id: "CARGO", className: "Navire Marchand", baseFreq: 650, bladeCount: 4 },
+};
+
 export interface Contact {
-    id: string
-    name: string
-    type: ContactType
-    vesselType: VesselType
-    alignment: Alignment
-    nationality: string
-    position: [number, number]
-    heading: number
-    speed: number
-    depth: number
+    id: string;
+    name: string;
+    type: ContactType;
+    vesselType: VesselType;
+    alignment: Alignment;
+    nationality: string;
+    position: [number, number];
+    heading: number;
+    speed: number;
+    depth: number;
+    signature: AcousticSignature;
 }
 
 interface SubmarineState {
-    depth: number
-    heading: number
-    pitch: number
-    speed: number
-    position: [number, number]
-    contacts: Contact[]
-    timeMultiplier: number
-    gameTime: number
-    sensorRange: number
-    targetDepth: number | null
-    waypoints: [number, number][]
+    depth: number;
+    heading: number;
+    pitch: number;
+    speed: number;
+    position: [number, number];
+    contacts: Contact[];
+    timeMultiplier: number;
+    gameTime: number;
+    sensorRange: number;
+    targetDepth: number | null;
+    waypoints: [number, number][];
 
-    contactToPlace: string | null
-    setContactToPlace: (id: string | null) => void
+    contactToPlace: string | null;
+    setContactToPlace: (id: string | null) => void;
 
-    isAlarmMuted: boolean
+    isAlarmMuted: boolean;
 
-    setDepth: (depth: number) => void
-    setHeading: (heading: number) => void
-    setPitch: (pitch: number) => void
-    setSpeed: (speed: number) => void
-    setPosition: (lat: number, lng: number) => void
-    setSensorRange: (range: number) => void
-    setTargetDepth: (depth: number | null) => void
-    setAlarmMuted: (muted: boolean) => void
-    addWaypoint: (lat: number, lng: number) => void
-    clearWaypoints: () => void
-    addContact: (contact: Omit<Contact, "id">) => void
-    updateContact: (id: string, updates: Partial<Omit<Contact, "id">>) => void
-    removeContact: (id: string) => void
-    setTimeMultiplier: (multiplier: number) => void
-    advanceTime: (dtRealSeconds: number) => void
-    setGameTime: (timeMs: number) => void
+    setDepth: (depth: number) => void;
+    setHeading: (heading: number) => void;
+    setPitch: (pitch: number) => void;
+    setSpeed: (speed: number) => void;
+    setPosition: (lat: number, lng: number) => void;
+    setSensorRange: (range: number) => void;
+    setTargetDepth: (depth: number | null) => void;
+    setAlarmMuted: (muted: boolean) => void;
+    addWaypoint: (lat: number, lng: number) => void;
+    clearWaypoints: () => void;
+    addContact: (contact: Omit<Contact, "id">) => void;
+    updateContact: (id: string, updates: Partial<Omit<Contact, "id">>) => void;
+    removeContact: (id: string) => void;
+    setTimeMultiplier: (multiplier: number) => void;
+    advanceTime: (dtRealSeconds: number) => void;
+    setGameTime: (timeMs: number) => void;
     // Traque Sonar
-    selectedBearing: number | null
-    setSelectedBearing: (bearing: number | null) => void
+    selectedBearing: number | null;
+    setSelectedBearing: (bearing: number | null) => void;
 
-    getSonarStatus: () => { isBlind: boolean; reason: string | null }
-    getVisibleContacts: () => Contact[]
-    getRouteDistance: () => number
+    getSonarStatus: () => { isBlind: boolean; reason: string | null };
+    getVisibleContacts: () => Contact[];
+    getRouteDistance: () => number;
 }
 
 export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
@@ -90,7 +107,8 @@ export const useSubmarineStore = create<SubmarineState>()((set, get) => ({
             position: [38.6, -27.8],
             heading: 0,
             speed: 0,
-            depth: 0
+            depth: 0,
+            signature: VESSEL_DICTIONARY["FDI"],
         }
     ],
 

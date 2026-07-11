@@ -50,7 +50,6 @@ export function NarrowbandDisplay() {
 
             // 4. Analyse du contact (si on traque un cap précis)
             if (state.selectedBearing !== null) {
-                // On cherche un contact dans ce faisceau (+/- 3 degrés)
                 const target = state.contacts.find(contact => {
                     const trueBearing = getBearing(state.position, contact.position);
                     let diff = Math.abs(trueBearing - state.selectedBearing!);
@@ -58,7 +57,7 @@ export function NarrowbandDisplay() {
                     return diff < 3;
                 });
 
-                if (target) {
+                if (target && target.signature) {
                     const dist = getDistanceNm(state.position, target.position);
                     if (dist <= state.sensorRange) {
                         const baseNoise = target.speed / 35;
@@ -66,29 +65,30 @@ export function NarrowbandDisplay() {
                         const intensity = Math.min(1, (baseNoise * 0.7) + (proximityBonus * 0.4) + 0.15);
 
                         if (intensity > 0.2) {
-                            // FRÉQUENCE FONDAMENTALE (Base Plant)
-                            // Pour simplifier, on positionne son moteur à 400Hz (soit 40% de la largeur du canvas)
-                            const baseFreqX = Math.round(width * 0.4);
+                            // 1. FRÉQUENCE FONDAMENTALE (Le réacteur/moteur)
+                            // On place la trace exactement sur les Hertz correspondants (0 à 1000Hz)
+                            const baseFreqX = Math.round((target.signature.baseFreq / 1000) * width);
 
-                            // Trace de la machinerie lourde
                             ctx.fillStyle = getThermalColor(intensity);
-                            ctx.fillRect(baseFreqX, 0, 2, 1);
+                            ctx.fillRect(baseFreqX, 0, 2, 1); // Trace centrale forte
 
-                            // LES HARMONIQUES D'HÉLICE (Blade Rate & Sidebands)
-                            // La vitesse du navire dicte l'espacement des fréquences
+                            // 2. LE BLADE RATE (Fréquence de rotation de l'hélice)
                             if (target.speed > 0) {
-                                // L'écartement grandit avec la vitesse (ex: à 20 nds, l'écart est de 30px)
-                                const bladeRateOffset = Math.max(10, Math.floor(target.speed * 1.5));
+                                // Formule de simulation : L'écart dépend de la vitesse ET du nombre de pales
+                                // Plus il y a de pales, plus les harmoniques sont resserrées à vitesse égale
+                                const bladeRateOffset = Math.max(3, Math.floor((target.speed * 10) / target.signature.bladeCount));
 
+                                // Première harmonique (Les rails principaux)
                                 ctx.fillStyle = getThermalColor(intensity * 0.85);
-                                // Rail gauche et droite (Première harmonique)
                                 ctx.fillRect(baseFreqX - bladeRateOffset, 0, 1, 1);
                                 ctx.fillRect(baseFreqX + bladeRateOffset, 0, 1, 1);
 
-                                // Deuxième harmonique (plus faible, plus loin)
-                                ctx.fillStyle = getThermalColor(intensity * 0.6);
-                                ctx.fillRect(baseFreqX - (bladeRateOffset * 2), 0, 1, 1);
-                                ctx.fillRect(baseFreqX + (bladeRateOffset * 2), 0, 1, 1);
+                                // Deuxième harmonique (Plus discrète, si le signal est fort)
+                                if (intensity > 0.5) {
+                                    ctx.fillStyle = getThermalColor(intensity * 0.5);
+                                    ctx.fillRect(baseFreqX - (bladeRateOffset * 2), 0, 1, 1);
+                                    ctx.fillRect(baseFreqX + (bladeRateOffset * 2), 0, 1, 1);
+                                }
                             }
                         }
                     }
