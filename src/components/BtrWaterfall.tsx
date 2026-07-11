@@ -9,7 +9,7 @@ const getThermalColor = (intensity: number) => {
     return `hsl(${hue}, 100%, ${lightness}%)`;
 }
 
-export function SonarWaterfall() {
+export function BtrWaterfall() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     // On récupère la fonction d'assignation

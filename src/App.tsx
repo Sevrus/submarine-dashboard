@@ -4,11 +4,12 @@ import { Compass } from "./components/Compass";
 import { PitchIndicator } from "./components/PitchIndicator";
 import { TacticalMap } from "./components/TacticalMap";
 import { MjPanel } from "./components/MjPanel";
-import { SonarWaterfall } from "./components/SonarWaterfall";
+import { BtrWaterfall } from "./components/BtrWaterfall.tsx";
+import { NarrowbandDisplay } from "./components/NarrowbandDisplay";
 import { CircularSonar } from "./components/CircularSonar";
 
 function App() {
-  const { depth, speed, heading, pitch, advanceTime, gameTime, targetDepth } = useSubmarineStore()
+  const { depth, speed, heading, pitch, advanceTime, targetDepth } = useSubmarineStore()
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -17,7 +18,7 @@ function App() {
     return () => clearInterval(interval)
   }, [advanceTime])
 
-  const gmtTime = new Date(gameTime).toLocaleTimeString("en-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+  // const gmtTime = new Date(gameTime).toLocaleTimeString("en-GB", { timeZone: "UTC", hour: "2-digit", minute: "2-digit", second: "2-digit" })
 
   return (
       <div className="flex h-screen w-full bg-slate-950 text-cyan-50 font-mono overflow-hidden">
@@ -27,17 +28,19 @@ function App() {
           {/* ZONE D'AFFICHAGE TACTIQUE (Split 70/30) */}
           <div className="flex-1 relative flex flex-row">
 
-            {/* HUD COMMUN (Temps) */}
-            <div className="absolute top-4 left-4 z-1000 pointer-events-none flex flex-col gap-2">
-              <div className="bg-slate-900/80 border border-slate-700 px-3 py-1.5 rounded flex items-center justify-between gap-4 backdrop-blur-sm shadow-lg">
-                <span className="text-xs text-slate-500 font-bold tracking-widest">ZULU</span>
-                <span className="text-cyan-400 font-bold text-xl drop-shadow-[0_0_5px_rgba(34,211,238,0.5)]">{gmtTime}</span>
-              </div>
-            </div>
+            {/* ... HUD ZULU TIME ... */}
 
-            {/* PARTIE GAUCHE : 70% LOFAR */}
-            <div className="w-[70%] h-full relative border-r border-slate-800">
-              <SonarWaterfall />
+            {/* PARTIE GAUCHE : 70% SONARS ACOUSTIQUES */}
+            <div className="w-[70%] h-full relative border-r border-slate-800 flex flex-col">
+              {/* HAUT : Le BTR (Vue spatiale 360°) */}
+              <div className="h-[65%] border-b border-slate-800">
+                <BtrWaterfall />
+              </div>
+
+              {/* BAS : Le LOFAR (Vue Fréquences) */}
+              <div className="h-[35%] bg-slate-900">
+                <NarrowbandDisplay />
+              </div>
             </div>
 
             {/* PARTIE DROITE : 30% STACKED (Panoramique + TMA) */}
