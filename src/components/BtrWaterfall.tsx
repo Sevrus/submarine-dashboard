@@ -12,6 +12,8 @@ const getThermalColor = (intensity: number) => {
 export function BtrWaterfall() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
+    // On écoute la valeur actuelle pour pouvoir placer notre surcouche HTML
+    const selectedBearing = useSubmarineStore(s => s.selectedBearing);
     // On récupère la fonction d'assignation
     const setSelectedBearing = useSubmarineStore(s => s.setSelectedBearing);
 
@@ -219,13 +221,6 @@ export function BtrWaterfall() {
                 return bio.life < bio.maxLife;
             });
 
-            // 7. Ligne de sélection
-            if (state.selectedBearing !== null) {
-                const yPos = Math.round((state.selectedBearing / 360) * height);
-                ctx.fillStyle = 'rgba(250, 204, 21, 0.3)';
-                ctx.fillRect(0, yPos, width, 1);
-            }
-
             setTimeout(() => {
                 animationId = requestAnimationFrame(drawWaterfall);
             }, TICK_RATE_MS);
@@ -262,6 +257,15 @@ export function BtrWaterfall() {
                     className="w-full h-full absolute inset-0 mix-blend-screen cursor-crosshair touch-none"
                     style={{ imageRendering: 'pixelated' }}
                 />
+
+                {/* La ligne de sélection en pur HTML/CSS */}
+                {selectedBearing !== null && (
+                    <div
+                        className="absolute left-0 w-full h-px bg-yellow-400/50 shadow-[0_0_8px_rgba(250,204,21,0.8)] pointer-events-none z-20"
+                        style={{ top: `${(selectedBearing / 360) * 100}%` }}
+                    />
+                )}
+
                 {/* Ligne de balayage lumineuse placée tout à DROITE */}
                 <div className="absolute top-0 right-0 w-px h-full bg-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 pointer-events-none"></div>
 
