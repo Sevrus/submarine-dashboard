@@ -16,18 +16,37 @@ export function BtrWaterfall() {
     const setSelectedBearing = useSubmarineStore(s => s.setSelectedBearing);
 
     // Gestion du clic sur la chute d'eau
-    const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const isDragging = useRef(false);
+
+    const updateBearing = (e: React.PointerEvent<HTMLCanvasElement>) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const rect = canvas.getBoundingClientRect();
-        // On calcule la position Y relative du clic
         const y = e.clientY - rect.top;
-        // On la convertit en degrés (0 à 360)
-        const clickedBearing = Math.round((y / rect.height) * 360);
+        const bearing = Math.round((y / rect.height) * 360);
+        // On s'assure que le cap reste entre 0 et 359°
+        setSelectedBearing(Math.max(0, Math.min(359, bearing)));
+    };
 
-        // Si on clique sur un cap qu'on traquait déjà, ça le désélectionne
-        const currentBearing = useSubmarineStore.getState().selectedBearing;
-        setSelectedBearing(currentBearing === clickedBearing ? null : clickedBearing);
+    const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+        isDragging.current = true;
+        // Permet de garder le focus sur le canvas même si la souris sort légèrement du cadre
+        e.currentTarget.setPointerCapture(e.pointerId);
+        updateBearing(e);
+    };
+
+    const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+        if (!isDragging.current) return;
+        updateBearing(e);
+    };
+
+    const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+        isDragging.current = false;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+    };
+
+    const handleDoubleClick = () => {
+        setSelectedBearing(null); // Le double-clic efface la piste instantanément
     };
 
     useEffect(() => {
@@ -233,14 +252,23 @@ export function BtrWaterfall() {
             <div className="flex-1 relative overflow-hidden">
                 <canvas
                     ref={canvasRef}
-                    onClick={handleCanvasClick}
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onDoubleClick={handleDoubleClick}
                     width={720}
                     height={500}
-                    className="w-full h-full absolute inset-0 mix-blend-screen"
+                    // La classe touch-none évite que la page scroll si tu joues sur tablette
+                    className="w-full h-full absolute inset-0 mix-blend-screen cursor-crosshair touch-none"
                     style={{ imageRendering: 'pixelated' }}
                 />
                 {/* Ligne de balayage lumineuse placée tout à DROITE */}
-                <div className="absolute top-0 right-0 w-px h-full bg-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10"></div>
+                <div className="absolute top-0 right-0 w-px h-full bg-red-500/50 shadow-[0_0_8px_rgba(239,68,68,0.8)] z-10 pointer-events-none"></div>
+
+                {/* Indication des commandes (désactivée pour les clics via pointer-events-none) */}
+                <div className="absolute bottom-2 right-2 text-[10px] text-slate-500/80 font-bold bg-slate-900/80 px-2 py-1 rounded border border-slate-800 pointer-events-none shadow-lg backdrop-blur-sm">
+                    GLISSER : DÉPLACER LA PISTE | DOUBLE-CLIC : EFFACER
+                </div>
             </div>
         </div>
     );
