@@ -39,9 +39,7 @@ export function SonarWaterfall() {
         const TICK_RATE_MS = 50;
         let animationId: number;
 
-        // --- VARIABLES GLOBALES DE L'ANIMATION ---
-
-        // 1. Faune marine (Biologiques)
+        // --- VARIABLES GLOBALES ---
         interface BioContact {
             yPos: number;
             drift: number;
@@ -51,10 +49,9 @@ export function SonarWaterfall() {
             baseIntensity: number;
         }
         let biologicals: BioContact[] = [];
-
-        // 2. Bruits transitoires (Flashs et Profondeur)
         let transientFlash = 0;
         let lastDepth = useSubmarineStore.getState().depth;
+        let accumulatedDepthChange = 0;
 
         // --- BOUCLE DE DESSIN ---
         const drawWaterfall = () => {
@@ -64,37 +61,56 @@ export function SonarWaterfall() {
             const state = useSubmarineStore.getState();
             const currentSpeed = state.speed;
             const currentDepth = state.depth;
+            // SÉCURITÉ : On s'assure d'avoir un cap valide (par défaut 0)
+            const currentHeading = state.heading || 0;
 
-            // DÉCLARATION ICI : On vérifie la variation de profondeur
-            const isActivelyChangingDepth = Math.abs(currentDepth - lastDepth) > 0.05;
-            lastDepth = currentDepth; // Mise à jour pour la frame suivante
+            // Variation de profondeur (Craquements)
+            accumulatedDepthChange += Math.abs(currentDepth - lastDepth);
+            lastDepth = currentDepth;
 
-            // 1. FLUX HORIZONTAL : On décale l'image d'un pixel vers la GAUCHE
+            // 1. FLUX HORIZONTAL : On décale l'image
             const imageData = ctx.getImageData(1, 0, width - 1, height);
             ctx.putImageData(imageData, 0, 0);
 
-            // 2. Calcul du Bruit Propre (Flow Noise)
+            // 2. Bruit Propre global (Flow Noise)
             const flowNoiseRatio = Math.max(0, (currentSpeed - 10) / 30);
             const backgroundIntensity = flowNoiseRatio * 0.25;
             ctx.fillStyle = getThermalColor(backgroundIntensity);
             ctx.fillRect(width - 1, 0, 1, height);
 
-            // 3. Bruit de fond marin + Turbulences
+            // --- 3. BRUIT AMBIANT ET ZONE D'OMBRE (BAFFLE) ---
             for (let y = 0; y < height; y += 2) {
-                if (Math.random() > 0.85) {
+                const pixelBearing = (y / height) * 360;
+
+                let relativeAngle = Math.abs(pixelBearing - currentHeading);
+                if (relativeAngle > 180) relativeAngle = 360 - relativeAngle;
+
+                const isInBaffle = relativeAngle > 150;
+
+                if (isInBaffle) {
+                    // CORRECTION : L'intensité de base est forcée à 0.45 (Vert brillant)
+                    // Elle monte jusqu'à 0.9 (Rouge vif) avec la vitesse.
+                    // On retire le fondu sur les bords pour avoir une ligne de démarcation nette.
+                    const speedFactor = Math.min(1, currentSpeed / 30);
+                    const baffleNoise = 0.45 + (speedFactor * 0.45) + (Math.random() * 0.1);
+
+                    ctx.fillStyle = getThermalColor(baffleNoise);
+                    ctx.fillRect(width - 1, y, 1, 2);
+                }
+                else if (Math.random() > 0.85) {
                     const ambientNoise = Math.random() * 0.15;
                     const turbulenceNoise = Math.random() * flowNoiseRatio * 0.6;
-                    const totalNoiseIntensity = ambientNoise + turbulenceNoise;
-
-                    ctx.fillStyle = getThermalColor(totalNoiseIntensity);
+                    ctx.fillStyle = getThermalColor(ambientNoise + turbulenceNoise);
                     const noiseSize = currentSpeed > 25 && Math.random() > 0.5 ? 2 : 1;
                     ctx.fillRect(width - 1, y, 1, noiseSize);
                 }
             }
+            // --------------------------------------------------
 
-            // 4. Bruits Transitoires (Craquements de coque)
-            if (isActivelyChangingDepth && Math.random() < 0.02) {
-                transientFlash = 0.6 + Math.random() * 0.4;
+            // 4. Bruits Transitoires
+            if (accumulatedDepthChange >= 0.5) {
+                if (Math.random() < 0.35) transientFlash = 0.6 + Math.random() * 0.4;
+                accumulatedDepthChange = 0;
             } else if (Math.random() < 0.0003) {
                 transientFlash = 0.4 + Math.random() * 0.4;
             }
@@ -109,10 +125,17 @@ export function SonarWaterfall() {
                 transientFlash = Math.max(0, transientFlash - 0.25);
             }
 
-            // 5. Dessiner les contacts (Militaires)
+            // 5. Contacts (Militaires)
             state.contacts.forEach(contact => {
                 const dist = getDistanceNm(state.position, contact.position);
                 if (dist > state.sensorRange) return;
+
+                const trueBearing = getBearing(state.position, contact.position);
+
+                let relativeAngle = Math.abs(trueBearing - currentHeading);
+                if (relativeAngle > 180) relativeAngle = 360 - relativeAngle;
+                // Le contact est dans notre cône arrière de 60° : il est physiquement ignoré
+                if (relativeAngle > 150) return;
 
                 const baseNoise = contact.speed / 35;
                 const proximityBonus = 1 - (dist / state.sensorRange);
@@ -120,7 +143,6 @@ export function SonarWaterfall() {
 
                 if (intensity < 0.2) return;
 
-                const trueBearing = getBearing(state.position, contact.position);
                 const yPos = Math.round((trueBearing / 360) * height);
                 const signalWidth = Math.max(1, Math.floor(contact.speed / 5));
 
@@ -157,21 +179,28 @@ export function SonarWaterfall() {
                 bio.yPos += Math.sin(bio.phase) * bio.drift;
                 bio.phase += 0.05;
 
-                const lifeRatio = bio.life / bio.maxLife;
-                const fadeMultiplier = Math.sin(lifeRatio * Math.PI);
-                const pulse = (Math.sin(bio.phase * 0.5) + 1) / 2;
-                const finalIntensity = bio.baseIntensity * fadeMultiplier * pulse;
+                const pixelBearing = (bio.yPos / height) * 360;
+                let relativeAngle = Math.abs(pixelBearing - currentHeading);
+                if (relativeAngle > 180) relativeAngle = 360 - relativeAngle;
 
-                if (finalIntensity > 0.05) {
-                    const bioWidth = 2 + Math.random() * 2;
-                    ctx.fillStyle = getThermalColor(finalIntensity * 0.7);
-                    ctx.fillRect(width - 1, Math.round(bio.yPos) - Math.floor(bioWidth / 2), 1, bioWidth);
+                // La baleine n'est dessinée que si elle n'est pas dans le Baffle
+                if (relativeAngle <= 150) {
+                    const lifeRatio = bio.life / bio.maxLife;
+                    const fadeMultiplier = Math.sin(lifeRatio * Math.PI);
+                    const pulse = (Math.sin(bio.phase * 0.5) + 1) / 2;
+                    const finalIntensity = bio.baseIntensity * fadeMultiplier * pulse;
+
+                    if (finalIntensity > 0.05) {
+                        const bioWidth = 2 + Math.random() * 2;
+                        ctx.fillStyle = getThermalColor(finalIntensity * 0.7);
+                        ctx.fillRect(width - 1, Math.round(bio.yPos) - Math.floor(bioWidth / 2), 1, bioWidth);
+                    }
                 }
 
                 return bio.life < bio.maxLife;
             });
 
-            // 7. Ligne de sélection (Tracker) sur le LOFAR
+            // 7. Ligne de sélection
             if (state.selectedBearing !== null) {
                 const yPos = Math.round((state.selectedBearing / 360) * height);
                 ctx.fillStyle = 'rgba(250, 204, 21, 0.3)';
